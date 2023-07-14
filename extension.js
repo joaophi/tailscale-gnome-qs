@@ -44,7 +44,7 @@ const TailscaleIndicator = GObject.registerClass(
 
       // Create the icon for the indicator
       const exit = this._addIndicator();
-      exit.icon_name = "application-exit-symbolic";
+      exit.icon_name = "network-vpn-symbolic";
       exit.visible = false;
 
       let _up = false;
