@@ -112,7 +112,7 @@ const TailscaleMenuToggle = GObject.registerClass(
       tailscale.connect("notify::nodes", (obj) => {
         nodes.removeAll();
         for (const node of obj.nodes) {
-          const icon = !node.online ? "network-offline-symbolic" : ((node.os == "android" || node.os == "ios") ? "phone-symbolic" : "computer-symbolic");
+          const icon = !node.online ? "network-offline-symbolic" : ((node.os == "android" || node.os == "iOS") ? "phone-symbolic" : "computer-symbolic");
           const subtitle = node.exit_node ? "disable exit node" : (node.exit_node_option ? "use as exit node" : "");
           const callback = () => node.exit_node_option && (tailscale.exit_node = node.exit_node ? "" : node.name);
 
