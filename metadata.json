@@ -1,0 +1,8 @@
+{
+  "name": "Tailscale",
+  "description": "Tailscale",
+  "uuid": "tailscale@joaophi.github.com",
+  "shell-version": [
+    "44"
+  ]
+}
