@@ -6,13 +6,12 @@ const exec_cmd = (args, callback) => {
       args,
       Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE
     );
-    if(callback) {
+    if (callback) {
       proc.communicate_utf8_async(null, null, (proc, res) => {
         try {
           let [, stdout, stderr] = proc.communicate_utf8_finish(res);
           if (proc.get_successful()) {
-            const response = JSON.parse(stdout);
-            callback(response);
+            callback(stdout);
           } else {
             throw new Error(stderr);
           }
@@ -28,28 +27,32 @@ const exec_cmd = (args, callback) => {
 
 var Tailscale = GObject.registerClass(
   {
-    GTypeName: 'Tailscale',
     Properties: {
-        "running": GObject.ParamSpec.boolean(
-          "running", "", "",
-          GObject.ParamFlags.READWRITE,
-          false
-        ),
-        "accept-dns": GObject.ParamSpec.boolean(
-          "accept-dns", "", "",
-          GObject.ParamFlags.READWRITE,
-          false
-        ),
-        "accept-routes": GObject.ParamSpec.boolean(
-          "accept-routes", "", "",
-          GObject.ParamFlags.READWRITE,
-          false
-        ),
-        "nodes": GObject.ParamSpec.jsobject(
-          "nodes", "", "",
-          GObject.ParamFlags.READABLE,
-          []
-        ),
+      "running": GObject.ParamSpec.boolean(
+        "running", "", "",
+        GObject.ParamFlags.READWRITE,
+        false
+      ),
+      "accept-dns": GObject.ParamSpec.boolean(
+        "accept-dns", "", "",
+        GObject.ParamFlags.READWRITE,
+        false
+      ),
+      "accept-routes": GObject.ParamSpec.boolean(
+        "accept-routes", "", "",
+        GObject.ParamFlags.READWRITE,
+        false
+      ),
+      "exit-node": GObject.ParamSpec.string(
+        "exit-node", "", "",
+        GObject.ParamFlags.READWRITE,
+        ""
+      ),
+      "nodes": GObject.ParamSpec.jsobject(
+        "nodes", "", "",
+        GObject.ParamFlags.READABLE,
+        []
+      ),
     },
   },
   class Tailscale extends GObject.Object {
@@ -58,35 +61,54 @@ var Tailscale = GObject.registerClass(
       this._running = false;
       this._dns = false;
       this._routes = false;
+      this._exit_node = "";
+      this._nodes = [];
       this.refresh_status();
       this.refresh_prefs();
     }
 
     _process_status(status) {
       const running = status.BackendState == "Running";
-      if(running != this._running) {
+      if (running != this._running) {
         this._running = running;
         this.notify("running");
       }
     }
 
-    _process_nodes(status) {
+    _process_nodes(prefs, status) {
       const nodes = Object.values(status.Peer)
         .map(peer => ({
           name: peer.HostName,
-          phone: peer.OS == "android" || peer.OS == "ios",
-          exit_node: peer.ExitNode,
+          os: peer.OS,
+          exit_node: peer.ID == prefs.ExitNodeID,
           exit_node_option: peer.ExitNodeOption,
-        }));
-      if(nodes != this._nodes) {
+          online: peer.Online,
+        }))
+        .sort((a, b) =>
+          (b.online - a.online)
+          || (b.exit_node_option - a.exit_node_option)
+          || a.name.localeCompare(b.name)
+        );
+
+      if (JSON.stringify(nodes) != JSON.stringify(this._nodes)) {
         this._nodes = nodes;
         this.notify("nodes");
       }
     }
 
+    _process_exit_node(prefs, status) {
+      const exit_node = Object.values(status.Peer)
+        .find(peer => peer.ID == prefs.ExitNodeID);
+
+      if (exit_node?.HostName != this._exit_node) {
+        this._exit_node = exit_node?.HostName ?? "";
+        this.notify("exit-node");
+      }
+    }
+
     _process_dns(prefs) {
       const accept_dns = prefs.CorpDNS;
-      if(accept_dns != this._dns) {
+      if (accept_dns != this._dns) {
         this._dns = accept_dns;
         this.notify("accept-dns");
       }
@@ -94,7 +116,7 @@ var Tailscale = GObject.registerClass(
 
     _process_routes(prefs) {
       const accept_routes = prefs.RouteAll;
-      if(accept_routes != this._routes) {
+      if (accept_routes != this._routes) {
         this._routes = accept_routes;
         this.notify("accept-routes");
       }
@@ -108,9 +130,9 @@ var Tailscale = GObject.registerClass(
       if (this.accept_dns === value)
         return;
 
-      exec_cmd(['tailscale', 'set', `--accept-dns=${value}`]);
+      exec_cmd(["tailscale", "set", `--accept-dns=${value}`]);
 
-      this._dns=value;
+      this._dns = value;
       this.notify("accept-dns");
     }
 
@@ -122,41 +144,66 @@ var Tailscale = GObject.registerClass(
       if (this.accept_routes === value)
         return;
 
-      exec_cmd(['tailscale', 'set', `--accept-routes=${value}`]);
+      exec_cmd(["tailscale", "set", `--accept-routes=${value}`]);
 
-      this._routes=value;
+      this._routes = value;
       this.notify("accept-routes");
     }
 
     get running() {
-        return this._running;
+      return this._running;
     }
 
     set running(value) {
       if (this.running === value)
         return;
 
-      exec_cmd(['tailscale', value ? 'up':'down']);
+      exec_cmd(["tailscale", value ? "up" : "down"]);
 
-      this._running=value;
+      this._running = value;
       this.notify("running");
     }
 
-    get nodes() {
-        return this._nodes;
+    get exit_node() {
+      return this._exit_node;
     }
 
-    refresh_status () {
-      exec_cmd(['tailscale', "status", "--json"], (status) => {
+    set exit_node(value) {
+      if (this.exit_node === value)
+        return;
+
+      exec_cmd(["tailscale", "set", `--exit-node=${value}`], () => this.refresh_prefs());
+
+      this._exit_node = value;
+      this.notify("exit-node");
+    }
+
+    get nodes() {
+      return this._nodes;
+    }
+
+    refresh_status() {
+      exec_cmd(["tailscale", "status", "--json"], (response) => {
+        const status = JSON.parse(response);
+        this.last_status = status;
         this._process_status(status);
-        this._process_nodes(status);
+        if (this.last_prefs) {
+          this._process_nodes(this.last_prefs, status);
+          this._process_exit_node(this.last_prefs, status);
+        }
       });
     }
 
-    refresh_prefs () {
-      exec_cmd(['tailscale', "debug", "prefs"], (prefs) => {
+    refresh_prefs() {
+      exec_cmd(["tailscale", "debug", "prefs"], (response) => {
+        const prefs = JSON.parse(response);
+        this.last_prefs = prefs;
         this._process_dns(prefs);
         this._process_routes(prefs);
+        if (this.last_status) {
+          this._process_nodes(prefs, this.last_status);
+          this._process_exit_node(prefs, this.last_status);
+        }
       });
     }
   }

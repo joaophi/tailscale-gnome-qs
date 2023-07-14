@@ -17,7 +17,7 @@
  */
 
 /* exported init */
-const { GObject, Gio, GLib } = imports.gi;
+const { GObject, Gio, GLib, St } = imports.gi;
 
 const ExtensionUtils = imports.misc.extensionUtils;
 const Me = ExtensionUtils.getCurrentExtension();
@@ -27,7 +27,7 @@ const PopupMenu = imports.ui.popupMenu;
 const QuickSettings = imports.ui.quickSettings;
 
 // This is the live instance of the Quick Settings menu
-const QuickSettingsMenu = imports.ui.main.panel.statusArea.quickSettings;
+const QuickSettingsMenu = Main.panel.statusArea.quickSettings;
 
 const { Tailscale } = Me.imports.tailscale
 
@@ -40,8 +40,53 @@ const TailscaleIndicator = GObject.registerClass(
       const up = this._addIndicator();
       up.gicon = icon;
       up.visible = false;
+      tailscale.bind_property("running", up, "visible", GObject.BindingFlags.DEFAULT);
 
-      tailscale.bind_property('running', up, 'visible', GObject.BindingFlags.DEFAULT);
+      // Create the icon for the indicator
+      const exit = this._addIndicator();
+      exit.icon_name = "application-exit-symbolic";
+      exit.visible = false;
+
+      let _up = false;
+      let _exit_node = false;
+      const setVisible = () => exit.visible = _up && _exit_node
+
+      tailscale.connect("notify::exit-node", (obj) => {
+        _exit_node = obj.exit_node != "";
+        setVisible();
+      });
+      tailscale.connect("notify::running", (obj) => {
+        _up = obj.running;
+        setVisible();
+      });
+    }
+  }
+);
+
+const TailscaleDeviceItem = GObject.registerClass(
+  class TailscaleDeviceItem extends PopupMenu.PopupBaseMenuItem {
+    _init(icon_name, text, subtitle, callback) {
+      super._init({});
+
+      const icon = new St.Icon({
+        style_class: 'popup-menu-icon',
+      });
+      this.add_child(icon);
+      icon.icon_name = icon_name;
+
+      const label = new St.Label({
+        x_expand: true,
+      });
+      this.add_child(label);
+      label.text = text;
+
+      const sub = new St.Label({
+        style_class: 'device-subtitle',
+      });
+      this.add_child(sub);
+      sub.text = subtitle
+
+      this.connect('activate', () => callback());
     }
   }
 );
@@ -50,44 +95,49 @@ const TailscaleMenuToggle = GObject.registerClass(
   class TailscaleMenuToggle extends QuickSettings.QuickMenuToggle {
     _init(icon, tailscale) {
       super._init({
-        title: 'Tailscale',
+        title: "Tailscale",
         gicon: icon,
         toggleMode: true,
         menuEnabled: true,
       });
-      tailscale.bind_property('running', this, 'checked', GObject.BindingFlags.BIDIRECTIONAL);
+      tailscale.bind_property("running", this, "checked", GObject.BindingFlags.BIDIRECTIONAL);
 
       // This function is unique to this class. It adds a nice header with an
       // icon, title and optional subtitle. It's recommended you do so for
       // consistency with other menus.
       this.menu.setHeader(icon, this.title);
 
+      // NODES
+      const nodes = new PopupMenu.PopupMenuSection();
+      tailscale.connect("notify::nodes", (obj) => {
+        nodes.removeAll();
+        for (const node of obj.nodes) {
+          const icon = !node.online ? "network-offline-symbolic" : ((node.os == "android" || node.os == "ios") ? "phone-symbolic" : "computer-symbolic");
+          const subtitle = node.exit_node ? "disable exit node" : (node.exit_node_option ? "use as exit node" : "");
+          const callback = () => node.exit_node_option && (tailscale.exit_node = node.exit_node ? "" : node.name);
+
+          nodes.addMenuItem(new TailscaleDeviceItem(icon, node.name, subtitle, callback));
+        }
+      });
+      this.menu.addMenuItem(nodes);
+
+      // SEPARATOR
+      this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+
+      // PREFS
       const prefs = new PopupMenu.PopupMenuSection();
 
-      const routes = new PopupMenu.PopupSwitchMenuItem('Accept Routes', false, {});
-      tailscale.connect('notify::accept-routes', (obj) => routes.setToggleState(obj.accept_routes));
+      const routes = new PopupMenu.PopupSwitchMenuItem("Accept Routes", false, {});
+      tailscale.connect("notify::accept-routes", (obj) => routes.setToggleState(obj.accept_routes));
       routes.connect("toggled", (item) => tailscale.accept_routes = item.state);
       prefs.addMenuItem(routes);
 
-      const dns = new PopupMenu.PopupSwitchMenuItem('Accept DNS', false, {});
-      tailscale.connect('notify::accept-dns', (obj) => dns.setToggleState(obj.accept_dns));
+      const dns = new PopupMenu.PopupSwitchMenuItem("Accept DNS", false, {});
+      tailscale.connect("notify::accept-dns", (obj) => dns.setToggleState(obj.accept_dns));
       dns.connect("toggled", (item) => tailscale.accept_dns = item.state);
       prefs.addMenuItem(dns);
 
       this.menu.addMenuItem(prefs);
-
-      // Add an entry-point for more settings
-      this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
-
-      // You may also add sections of items to the menu
-      const nodes = new PopupMenu.PopupMenuSection();
-      tailscale.connect('notify::nodes', (obj) => {
-        nodes.removeAll();
-        for (const node of obj.nodes) {
-          nodes.addAction(node.name, () => log('activated'), node.phone ? "phone-symbolic" : "computer-symbolic");
-        }
-      });
-      this.menu.addMenuItem(nodes);
     }
   }
 );
@@ -133,4 +183,3 @@ class Extension {
 function init(meta) {
   return new Extension(meta.uuid);
 }
-
