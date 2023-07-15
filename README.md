@@ -1,9 +1,10 @@
 # tailscale-gnome-qs
 
-##### INSTALL
+##### CONFIG
+Make sure you set tailscale operator
+
 ```bash
 sudo tailscale set --operator=$USER
-git clone https://github.com/joaophi/tailscale-gnome-qs.git ~/.local/share/gnome-shell/extensions/tailscale@joaophi.github.com
 ```
 ##### SCREENSHOT
 
