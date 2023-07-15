@@ -2,7 +2,8 @@
 name: Test build system and upload extension
 
 on:
-  pull_request:
+  push:
+    # only trigger on branches, not on tags
     branches: '**'
 
 jobs:
