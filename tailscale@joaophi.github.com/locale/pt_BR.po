@@ -1,0 +1,50 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2023-07-14 16:47-0300\n"
+"PO-Revision-Date: 2023-07-14 16:58-0300\n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"Language: pt_BR\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: Poedit 3.3.1\n"
+
+#: extension.js:121
+msgid "disable exit node"
+msgstr "desativar nó de saída"
+
+#: extension.js:121
+msgid "use as exit node"
+msgstr "usar como nó de saída"
+
+#: extension.js:133
+msgid "Settings"
+msgstr "Configurações"
+
+#: extension.js:135
+msgid "Accept routes"
+msgstr "Aceitar rotas"
+
+#: extension.js:140
+msgid "Accept DNS"
+msgstr "Aceitar DNS"
+
+#: extension.js:145
+msgid "Allow LAN access"
+msgstr "Permitir acesso LAN"
+
+#: extension.js:150
+msgid "Shields up"
+msgstr "Levantar escudos"
+
+#: extension.js:155
+msgid "SSH"
+msgstr "SSH"

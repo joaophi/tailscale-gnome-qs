@@ -43,6 +43,21 @@ var Tailscale = GObject.registerClass(
         GObject.ParamFlags.READWRITE,
         false
       ),
+      "allow-lan-access": GObject.ParamSpec.boolean(
+        "allow-lan-access", "", "",
+        GObject.ParamFlags.READWRITE,
+        false
+      ),
+      "shields-up": GObject.ParamSpec.boolean(
+        "shields-up", "", "",
+        GObject.ParamFlags.READWRITE,
+        false
+      ),
+      "ssh": GObject.ParamSpec.boolean(
+        "ssh", "", "",
+        GObject.ParamFlags.READWRITE,
+        false
+      ),
       "exit-node": GObject.ParamSpec.string(
         "exit-node", "", "",
         GObject.ParamFlags.READWRITE,
@@ -61,6 +76,9 @@ var Tailscale = GObject.registerClass(
       this._running = false;
       this._dns = false;
       this._routes = false;
+      this._allow_lan_access = false;
+      this._shields_up = false;
+      this._ssh = false;
       this._exit_node = "";
       this._nodes = [];
       this.refresh_status();
@@ -122,6 +140,20 @@ var Tailscale = GObject.registerClass(
       }
     }
 
+    get running() {
+      return this._running;
+    }
+
+    set running(value) {
+      if (this.running === value)
+        return;
+
+      exec_cmd(["tailscale", value ? "up" : "down"]);
+
+      this._running = value;
+      this.notify("running");
+    }
+
     get accept_dns() {
       return this._dns;
     }
@@ -150,18 +182,46 @@ var Tailscale = GObject.registerClass(
       this.notify("accept-routes");
     }
 
-    get running() {
-      return this._running;
+    get allow_lan_access() {
+      return this._allow_lan_access;
     }
 
-    set running(value) {
-      if (this.running === value)
+    set allow_lan_access(value) {
+      if (this.allow_lan_access === value)
         return;
 
-      exec_cmd(["tailscale", value ? "up" : "down"]);
+      exec_cmd(["tailscale", "set", `--exit-node-allow-lan-access=${value}`]);
 
-      this._running = value;
-      this.notify("running");
+      this._allow_lan_access = value;
+      this.notify("allow_lan_access");
+    }
+
+    get shields_up() {
+      return this._shields_up;
+    }
+
+    set shields_up(value) {
+      if (this.shields_up === value)
+        return;
+
+      exec_cmd(["tailscale", "set", `--shields-up=${value}`]);
+
+      this._shields_up = value;
+      this.notify("shields-up");
+    }
+
+    get ssh() {
+      return this._ssh;
+    }
+
+    set ssh(value) {
+      if (this.ssh === value)
+        return;
+
+      exec_cmd(["tailscale", "set", `--ssh=${value}`]);
+
+      this._ssh = value;
+      this.notify("ssh");
     }
 
     get exit_node() {

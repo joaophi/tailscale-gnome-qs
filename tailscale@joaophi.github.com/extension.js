@@ -22,6 +22,11 @@ const { GObject, Gio, GLib, St } = imports.gi;
 const ExtensionUtils = imports.misc.extensionUtils;
 const Me = ExtensionUtils.getCurrentExtension();
 
+const Gettext = imports.gettext;
+const Domain = Gettext.domain(Me.metadata.uuid);
+const _ = Domain.gettext;
+const ngettext = Domain.ngettext;
+
 const Main = imports.ui.main;
 const PopupMenu = imports.ui.popupMenu;
 const QuickSettings = imports.ui.quickSettings;
@@ -113,7 +118,7 @@ const TailscaleMenuToggle = GObject.registerClass(
         nodes.removeAll();
         for (const node of obj.nodes) {
           const icon = !node.online ? "network-offline-symbolic" : ((node.os == "android" || node.os == "iOS") ? "phone-symbolic" : "computer-symbolic");
-          const subtitle = node.exit_node ? "disable exit node" : (node.exit_node_option ? "use as exit node" : "");
+          const subtitle = node.exit_node ? _("disable exit node") : (node.exit_node_option ? _("use as exit node") : "");
           const callback = () => node.exit_node_option && (tailscale.exit_node = node.exit_node ? "" : node.name);
 
           nodes.addMenuItem(new TailscaleDeviceItem(icon, node.name, subtitle, callback));
@@ -125,17 +130,32 @@ const TailscaleMenuToggle = GObject.registerClass(
       this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
 
       // PREFS
-      const prefs = new PopupMenu.PopupMenuSection();
+      const prefs = new PopupMenu.PopupSubMenuMenuItem(_("Settings"), false, {});
 
-      const routes = new PopupMenu.PopupSwitchMenuItem("Accept Routes", false, {});
+      const routes = new PopupMenu.PopupSwitchMenuItem(_("Accept routes"), false, {});
       tailscale.connect("notify::accept-routes", (obj) => routes.setToggleState(obj.accept_routes));
       routes.connect("toggled", (item) => tailscale.accept_routes = item.state);
-      prefs.addMenuItem(routes);
+      prefs.menu.addMenuItem(routes);
 
-      const dns = new PopupMenu.PopupSwitchMenuItem("Accept DNS", false, {});
+      const dns = new PopupMenu.PopupSwitchMenuItem(_("Accept DNS"), false, {});
       tailscale.connect("notify::accept-dns", (obj) => dns.setToggleState(obj.accept_dns));
       dns.connect("toggled", (item) => tailscale.accept_dns = item.state);
-      prefs.addMenuItem(dns);
+      prefs.menu.addMenuItem(dns);
+
+      const lan = new PopupMenu.PopupSwitchMenuItem(_("Allow LAN access"), false, {});
+      tailscale.connect("notify::allow-lan-access", (obj) => lan.setToggleState(obj.allow_lan_access));
+      lan.connect("toggled", (item) => tailscale.allow_lan_access = item.state);
+      prefs.menu.addMenuItem(lan);
+
+      const shields = new PopupMenu.PopupSwitchMenuItem(_("Shields up"), false, {});
+      tailscale.connect("notify::shields-up", (obj) => shields.setToggleState(obj.shields_up));
+      shields.connect("toggled", (item) => tailscale.shields_up = item.state);
+      prefs.menu.addMenuItem(shields);
+
+      const ssh = new PopupMenu.PopupSwitchMenuItem(_("SSH"), false, {});
+      tailscale.connect("notify::ssh", (obj) => ssh.setToggleState(obj.ssh));
+      ssh.connect("toggled", (item) => tailscale.ssh = item.state);
+      prefs.menu.addMenuItem(ssh);
 
       this.menu.addMenuItem(prefs);
     }
@@ -181,5 +201,6 @@ class Extension {
 }
 
 function init(meta) {
+  ExtensionUtils.initTranslations(Me.metadata.uuid);
   return new Extension(meta.uuid);
 }

@@ -1,0 +1,9 @@
+{
+  "name": "Tailscale QS",
+  "description": "Add Tailscale to GNOME quick settings",
+  "uuid": "tailscale@joaophi.github.com",
+  "shell-version": [
+    "44"
+  ],
+  "url": "https://github.com/joaophi/tailscale-gnome-qs"
+}
