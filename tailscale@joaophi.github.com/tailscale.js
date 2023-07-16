@@ -140,6 +140,30 @@ var Tailscale = GObject.registerClass(
       }
     }
 
+    _process_lan(prefs) {
+      const allow_lan_access = prefs.ExitNodeAllowLANAccess;
+      if (allow_lan_access != this._allow_lan_access) {
+        this._allow_lan_access = allow_lan_access;
+        this.notify("allow-lan-access");
+      }
+    }
+
+    _process_shields(prefs) {
+      const shields_up = prefs.ShieldsUp;
+      if (shields_up != this._shields_up) {
+        this._shields_up = shields_up;
+        this.notify("shields-up");
+      }
+    }
+
+    _process_ssh(prefs) {
+      const ssh = prefs.RunSSH;
+      if (ssh != this._ssh) {
+        this._ssh = ssh;
+        this.notify("ssh");
+      }
+    }
+
     get running() {
       return this._running;
     }
@@ -260,6 +284,9 @@ var Tailscale = GObject.registerClass(
         this.last_prefs = prefs;
         this._process_dns(prefs);
         this._process_routes(prefs);
+        this._process_lan(prefs);
+        this._process_shields(prefs);
+        this._process_ssh(prefs);
         if (this.last_status) {
           this._process_nodes(prefs, this.last_status);
           this._process_exit_node(prefs, this.last_status);
