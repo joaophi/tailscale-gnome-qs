@@ -1,6 +1,6 @@
 {
   "name": "Tailscale QS",
-  "description": "Add Tailscale to GNOME quick settings",
+  "description": "Add Tailscale to GNOME quick settings\n\nMake sure you set your user as tailscale operator:\nsudo tailscale set --operator=$USER",
   "uuid": "tailscale@joaophi.github.com",
   "shell-version": [
     "44"
