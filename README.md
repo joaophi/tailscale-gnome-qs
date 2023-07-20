@@ -2,8 +2,16 @@
 
 [<img alt="" height="100" src="https://raw.githubusercontent.com/andyholmes/gnome-shell-extensions-badge/master/get-it-on-ego.svg?sanitize=true">](https://extensions.gnome.org/extension/6139/tailscale-qs/)
 
+##### BUILD (UBUNTU)
+
+```bash
+sudo apt update && sudo apt install make gettext gnome-shell libglib2.0-bin
+make build
+make install
+```
+
 ##### CONFIG
-Make sure you set tailscale operator
+Make sure you set yourself tailscale operator
 
 ```bash
 sudo tailscale set --operator=$USER
