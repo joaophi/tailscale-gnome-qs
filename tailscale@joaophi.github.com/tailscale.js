@@ -94,7 +94,7 @@ var Tailscale = GObject.registerClass(
     }
 
     _process_nodes(prefs, status) {
-      const nodes = Object.values(status.Peer)
+      const nodes = Object.values(status.Peer ?? {})
         .map(peer => ({
           name: peer.DNSName.split(".")[0],
           os: peer.OS,
@@ -115,7 +115,7 @@ var Tailscale = GObject.registerClass(
     }
 
     _process_exit_node(prefs, status) {
-      const exit_node = Object.values(status.Peer)
+      const exit_node = Object.values(status.Peer ?? {})
         .find(peer => peer.ID == prefs.ExitNodeID);
 
       if (exit_node?.HostName != this._exit_node) {
