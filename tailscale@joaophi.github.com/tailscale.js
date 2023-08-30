@@ -101,6 +101,7 @@ var Tailscale = GObject.registerClass(
           exit_node: peer.ID == prefs.ExitNodeID,
           exit_node_option: peer.ExitNodeOption,
           online: peer.Online,
+          ips: peer.TailscaleIPs,
         }))
         .sort((a, b) =>
           (b.online - a.online)

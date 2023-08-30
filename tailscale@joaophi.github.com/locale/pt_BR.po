@@ -17,34 +17,38 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "X-Generator: Poedit 3.3.1\n"
 
-#: extension.js:121
+#: extension.js:146
 msgid "disable exit node"
 msgstr "desativar nó de saída"
 
-#: extension.js:121
+#: extension.js:146
 msgid "use as exit node"
 msgstr "usar como nó de saída"
 
-#: extension.js:133
+#: extension.js:154
+msgid "IP address has been copied to the clipboard"
+msgstr "O endereço IP foi copiado para a área de transferência"
+
+#: extension.js:167
 msgid "Settings"
 msgstr "Configurações"
 
-#: extension.js:135
+#: extension.js:169
 msgid "Accept routes"
 msgstr "Aceitar rotas"
 
-#: extension.js:140
+#: extension.js:174
 msgid "Accept DNS"
 msgstr "Aceitar DNS"
 
-#: extension.js:145
+#: extension.js:179
 msgid "Allow LAN access"
 msgstr "Permitir acesso LAN"
 
-#: extension.js:150
+#: extension.js:184
 msgid "Shields up"
 msgstr "Levantar escudos"
 
-#: extension.js:155
+#: extension.js:189
 msgid "SSH"
 msgstr "SSH"

@@ -17,7 +17,7 @@
  */
 
 /* exported init */
-const { GObject, Gio, GLib, St } = imports.gi;
+const { Clutter, GObject, Gio, GLib, St } = imports.gi;
 
 const ExtensionUtils = imports.misc.extensionUtils;
 const Me = ExtensionUtils.getCurrentExtension();
@@ -70,8 +70,10 @@ const TailscaleIndicator = GObject.registerClass(
 
 const TailscaleDeviceItem = GObject.registerClass(
   class TailscaleDeviceItem extends PopupMenu.PopupBaseMenuItem {
-    _init(icon_name, text, subtitle, callback) {
-      super._init({});
+    _init(icon_name, text, subtitle, onClick, onLongClick) {
+      super._init({
+        activate: onClick,
+      });
 
       const icon = new St.Icon({
         style_class: 'popup-menu-icon',
@@ -89,10 +91,33 @@ const TailscaleDeviceItem = GObject.registerClass(
         style_class: 'device-subtitle',
       });
       this.add_child(sub);
-      sub.text = subtitle
+      sub.text = subtitle;
 
-      this.connect('activate', () => callback());
+      this.connect('activate', () => onClick());
+
+      const clickAction = new Clutter.ClickAction({ enabled: true });
+      clickAction.connect('notify::pressed', () => {
+        if (clickAction.pressed)
+          this.add_style_pseudo_class('active');
+        else
+          this.remove_style_pseudo_class('active');
+      });
+      if (this._activatable)
+        clickAction.connect('clicked', () => this.activate(Clutter.get_current_event()));
+      clickAction.connect('long-press', (_action, _actor, state) => {
+        if (state === Clutter.LongPressState.ACTIVATE) {
+          return onLongClick();
+        }
+        return true;
+      });
+      this.add_action(clickAction);
     }
+
+    vfunc_button_press_event() { }
+
+    vfunc_button_release_event() { }
+
+    vfunc_touch_event(touchEvent) { }
   }
 );
 
@@ -117,11 +142,20 @@ const TailscaleMenuToggle = GObject.registerClass(
       tailscale.connect("notify::nodes", (obj) => {
         nodes.removeAll();
         for (const node of obj.nodes) {
-          const icon = !node.online ? "network-offline-symbolic" : ((node.os == "android" || node.os == "iOS") ? "phone-symbolic" : "computer-symbolic");
+          const device_icon = !node.online ? "network-offline-symbolic" : ((node.os == "android" || node.os == "iOS") ? "phone-symbolic" : "computer-symbolic");
           const subtitle = node.exit_node ? _("disable exit node") : (node.exit_node_option ? _("use as exit node") : "");
-          const callback = () => node.exit_node_option && (tailscale.exit_node = node.exit_node ? "" : node.name);
+          const onClick = node.exit_node_option ? () => { tailscale.exit_node = node.exit_node ? "" : node.name } : null;
+          const onLongClick = () => {
+            if (!node.ips)
+              return false;
 
-          nodes.addMenuItem(new TailscaleDeviceItem(icon, node.name, subtitle, callback));
+            St.Clipboard.get_default().set_text(St.ClipboardType.CLIPBOARD, node.ips[0]);
+            St.Clipboard.get_default().set_text(St.ClipboardType.PRIMARY, node.ips[0]);
+            Main.osdWindowManager.show(-1, icon, _("IP address has been copied to the clipboard"));
+            return true;
+          };
+
+          nodes.addMenuItem(new TailscaleDeviceItem(device_icon, node.name, subtitle, onClick, onLongClick));
         }
       });
       this.menu.addMenuItem(nodes);
