@@ -5,7 +5,7 @@
 ##### BUILD (UBUNTU)
 
 ```bash
-sudo apt update && sudo apt install make gettext gnome-shell libglib2.0-bin
+sudo apt update && sudo apt install make gettext gnome-shell
 make build
 make install
 ```
