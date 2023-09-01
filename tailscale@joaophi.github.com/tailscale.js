@@ -1,4 +1,5 @@
-const { GObject, Gio } = imports.gi;
+import GObject from "gi://GObject";
+import Gio from "gi://Gio";
 
 const exec_cmd = (args, callback) => {
   try {
@@ -25,7 +26,7 @@ const exec_cmd = (args, callback) => {
   }
 }
 
-var Tailscale = GObject.registerClass(
+export const Tailscale = GObject.registerClass(
   {
     Properties: {
       "running": GObject.ParamSpec.boolean(
