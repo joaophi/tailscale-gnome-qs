@@ -6,11 +6,12 @@ all: build install
 .PHONY: build install clean
 
 build:
-	rm -f $(BUNDLE_PATH)
+	rm -f $(BUNDLE_PATH); \
 	cd $(EXTENSION_DIR); \
 	gnome-extensions pack --force --podir=locale \
 	                      --extra-source=icons/ \
-						  --extra-source=tailscale.js; \
+	                      --extra-source=tailscale.js \
+	                      --extra-source=compat.js; \
 	mv $(EXTENSION_DIR).shell-extension.zip ../$(BUNDLE_PATH)
 
 install:
