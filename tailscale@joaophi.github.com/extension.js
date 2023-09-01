@@ -22,6 +22,7 @@ const { Clutter, GObject, Gio, GLib, St } = imports.gi;
 const ExtensionUtils = imports.misc.extensionUtils;
 const Me = ExtensionUtils.getCurrentExtension();
 
+const { Extension } = Me.imports.compat;
 const Gettext = imports.gettext;
 const Domain = Gettext.domain(Me.metadata.uuid);
 const _ = Domain.gettext;
@@ -95,22 +96,30 @@ const TailscaleDeviceItem = GObject.registerClass(
 
       this.connect('activate', () => onClick());
 
-      const clickAction = new Clutter.ClickAction({ enabled: true });
-      clickAction.connect('notify::pressed', () => {
-        if (clickAction.pressed)
-          this.add_style_pseudo_class('active');
-        else
-          this.remove_style_pseudo_class('active');
-      });
-      if (this._activatable)
-        clickAction.connect('clicked', () => this.activate(Clutter.get_current_event()));
+      const clickAction = this._clickAction ?? (() => {
+        const action = new Clutter.ClickAction();
+        this.add_action(action);
+        action.connect('notify::pressed', () => {
+          if (action.pressed)
+            this.add_style_pseudo_class('active');
+          else
+            this.remove_style_pseudo_class('active');
+        });
+        action.connect('clicked', () => this.activate(Clutter.get_current_event()));
+        return action
+      })();
       clickAction.connect('long-press', (_action, _actor, state) => {
         if (state === Clutter.LongPressState.ACTIVATE) {
           return onLongClick();
         }
         return true;
       });
-      this.add_action(clickAction);
+      clickAction.enabled = true;
+    }
+
+    activate(event) {
+      if (this._activatable)
+        this.emit('activate', event);
     }
 
     vfunc_button_press_event() { }
@@ -125,11 +134,12 @@ const TailscaleMenuToggle = GObject.registerClass(
   class TailscaleMenuToggle extends QuickSettings.QuickMenuToggle {
     _init(icon, tailscale) {
       super._init({
-        title: "Tailscale",
+        label: "Tailscale",
         gicon: icon,
         toggleMode: true,
         menuEnabled: true,
       });
+      this.title = "Tailscale";
       tailscale.bind_property("running", this, "checked", GObject.BindingFlags.BIDIRECTIONAL);
 
       // This function is unique to this class. It adds a nice header with an
@@ -196,11 +206,7 @@ const TailscaleMenuToggle = GObject.registerClass(
   }
 );
 
-class Extension {
-  constructor(uuid) {
-    this._uuid = uuid;
-  }
-
+class TailscaleExtension extends Extension {
   enable() {
     const tailscale = new Tailscale();
     this._timerId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 10, () => {
@@ -209,17 +215,27 @@ class Extension {
       return GLib.SOURCE_CONTINUE;
     });
 
-    const icon = Gio.icon_new_for_string(`${Me.path}/icons/tailscale.svg`);
+    const icon = Gio.icon_new_for_string(`${this.path}/icons/tailscale.svg`);
 
     this._indicator = new TailscaleIndicator(icon, tailscale);
-    QuickSettingsMenu._indicators.insert_child_at_index(this._indicator, 0);
-
     this._menu = new TailscaleMenuToggle(icon, tailscale);
-    QuickSettingsMenu._addItems([this._menu]);
-    QuickSettingsMenu.menu._grid.set_child_below_sibling(
-      this._menu,
-      QuickSettingsMenu._backgroundApps.quickSettingsItems[0]
-    );
+    if (QuickSettingsMenu.addExternalIndicator) {
+      this._indicator.quickSettingsItems.push(this._menu);
+      QuickSettingsMenu.addExternalIndicator(this._indicator);
+    } else {
+      GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
+        if (!QuickSettingsMenu._indicators.get_first_child())
+          return GLib.SOURCE_CONTINUE;
+
+        QuickSettingsMenu._indicators.insert_child_at_index(this._indicator, 0);
+        QuickSettingsMenu._addItems([this._menu]);
+        QuickSettingsMenu.menu._grid.set_child_below_sibling(
+          this._menu,
+          QuickSettingsMenu._backgroundApps.quickSettingsItems[0]
+        );
+        return GLib.SOURCE_REMOVE;
+      });
+    }
   }
 
   disable() {
@@ -236,5 +252,5 @@ class Extension {
 
 function init(meta) {
   ExtensionUtils.initTranslations(Me.metadata.uuid);
-  return new Extension(meta.uuid);
+  return new TailscaleExtension(meta.uuid, Me.path);
 }
