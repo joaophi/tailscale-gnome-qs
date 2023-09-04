@@ -1,28 +1,30 @@
+import GLib from "gi://GLib";
 import GObject from "gi://GObject";
 import Gio from "gi://Gio";
+import Soup from "gi://Soup?version=3.0";
 
-const exec_cmd = (args, callback) => {
-  try {
-    const proc = Gio.Subprocess.new(
-      args,
-      Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE
-    );
-    if (callback) {
-      proc.communicate_utf8_async(null, null, (proc, res) => {
-        try {
-          let [, stdout, stderr] = proc.communicate_utf8_finish(res);
-          if (proc.get_successful()) {
-            callback(stdout);
-          } else {
-            throw new Error(stderr);
-          }
-        } catch (e) {
-          logError(e);
-        }
-      });
+class TailscaleApiClient {
+  constructor() {
+    const address = new Gio.UnixSocketAddress({
+      path: "/run/tailscale/tailscaled.sock",
+    });
+    this.session = new Soup.Session({ "remote-connectable": address });
+    this.encoder = new TextEncoder();
+    this.decoder = new TextDecoder();
+  }
+
+  async request(method, path, body = null) {
+    const message = Soup.Message.new(method, `http://local-tailscaled.sock${path}`);
+    if (body) {
+      const bytes = this.encoder.encode(JSON.stringify(body));
+      message.set_request_body_from_bytes("application/json", new GLib.Bytes(bytes));
     }
-  } catch (e) {
-    logError(e);
+
+    Gio._promisify(Soup.Session.prototype, "send_and_read_async");
+    const response_bytes = await this.session.send_and_read_async(message, GLib.PRIORITY_DEFAULT, null);
+    const response = this.decoder.decode(response_bytes.get_data());
+    const content_type = message.response_headers.get_one("Content-Type");
+    return content_type == "application/json" ? JSON.parse(response) : response
   }
 }
 
@@ -74,6 +76,7 @@ export const Tailscale = GObject.registerClass(
   class Tailscale extends GObject.Object {
     _init() {
       super._init();
+      this._client = new TailscaleApiClient();
       this._running = false;
       this._dns = false;
       this._routes = false;
@@ -86,8 +89,8 @@ export const Tailscale = GObject.registerClass(
       this.refresh_prefs();
     }
 
-    _process_status(status) {
-      const running = status.BackendState == "Running";
+    _process_status(prefs) {
+      const running = prefs.WantRunning;
       if (running != this._running) {
         this._running = running;
         this.notify("running");
@@ -97,6 +100,7 @@ export const Tailscale = GObject.registerClass(
     _process_nodes(prefs, status) {
       const nodes = Object.values(status.Peer ?? {})
         .map(peer => ({
+          id: peer.ID,
           name: peer.DNSName.split(".")[0],
           os: peer.OS,
           exit_node: peer.ID == prefs.ExitNodeID,
@@ -116,12 +120,10 @@ export const Tailscale = GObject.registerClass(
       }
     }
 
-    _process_exit_node(prefs, status) {
-      const exit_node = Object.values(status.Peer ?? {})
-        .find(peer => peer.ID == prefs.ExitNodeID);
-
-      if (exit_node?.HostName != this._exit_node) {
-        this._exit_node = exit_node?.HostName ?? "";
+    _process_exit_node(prefs) {
+      const exit_node_id = prefs.ExitNodeID;
+      if (exit_node_id != this._exit_node) {
+        this._exit_node = exit_node_id;
         this.notify("exit-node");
       }
     }
@@ -174,10 +176,7 @@ export const Tailscale = GObject.registerClass(
       if (this.running === value)
         return;
 
-      exec_cmd(["tailscale", value ? "up" : "down"]);
-
-      this._running = value;
-      this.notify("running");
+      this._update_prefs({ WantRunning: value });
     }
 
     get accept_dns() {
@@ -188,10 +187,7 @@ export const Tailscale = GObject.registerClass(
       if (this.accept_dns === value)
         return;
 
-      exec_cmd(["tailscale", "set", `--accept-dns=${value}`]);
-
-      this._dns = value;
-      this.notify("accept-dns");
+      this._update_prefs({ CorpDNS: value });
     }
 
     get accept_routes() {
@@ -202,10 +198,7 @@ export const Tailscale = GObject.registerClass(
       if (this.accept_routes === value)
         return;
 
-      exec_cmd(["tailscale", "set", `--accept-routes=${value}`]);
-
-      this._routes = value;
-      this.notify("accept-routes");
+      this._update_prefs({ RouteAll: value });
     }
 
     get allow_lan_access() {
@@ -216,10 +209,7 @@ export const Tailscale = GObject.registerClass(
       if (this.allow_lan_access === value)
         return;
 
-      exec_cmd(["tailscale", "set", `--exit-node-allow-lan-access=${value}`]);
-
-      this._allow_lan_access = value;
-      this.notify("allow_lan_access");
+      this._update_prefs({ ExitNodeAllowLANAccess: value });
     }
 
     get shields_up() {
@@ -230,10 +220,7 @@ export const Tailscale = GObject.registerClass(
       if (this.shields_up === value)
         return;
 
-      exec_cmd(["tailscale", "set", `--shields-up=${value}`]);
-
-      this._shields_up = value;
-      this.notify("shields-up");
+      this._update_prefs({ ShieldsUp: value });
     }
 
     get ssh() {
@@ -244,10 +231,7 @@ export const Tailscale = GObject.registerClass(
       if (this.ssh === value)
         return;
 
-      exec_cmd(["tailscale", "set", `--ssh=${value}`]);
-
-      this._ssh = value;
-      this.notify("ssh");
+      this._update_prefs({ RunSSH: value });
     }
 
     get exit_node() {
@@ -258,10 +242,7 @@ export const Tailscale = GObject.registerClass(
       if (this.exit_node === value)
         return;
 
-      exec_cmd(["tailscale", "set", `--exit-node=${value}`], () => this.refresh_prefs());
-
-      this._exit_node = value;
-      this.notify("exit-node");
+      this._update_prefs({ ExitNodeID: value });
     }
 
     get nodes() {
@@ -269,32 +250,58 @@ export const Tailscale = GObject.registerClass(
     }
 
     refresh_status() {
-      exec_cmd(["tailscale", "status", "--json"], (response) => {
-        const status = JSON.parse(response);
-        this.last_status = status;
-        this._process_status(status);
-        if (this.last_prefs) {
-          this._process_nodes(this.last_prefs, status);
-          this._process_exit_node(this.last_prefs, status);
-        }
-      });
+      this._client.request("GET", "/localapi/v0/status")
+        .then(
+          (status) => {
+            this._status = status;
+            this._parse_response();
+          },
+          (error) => console.error(error),
+        );
     }
 
     refresh_prefs() {
-      exec_cmd(["tailscale", "debug", "prefs"], (response) => {
-        const prefs = JSON.parse(response);
-        this.last_prefs = prefs;
-        this._process_dns(prefs);
-        this._process_routes(prefs);
-        this._process_lan(prefs);
-        this._process_shields(prefs);
-        this._process_ssh(prefs);
-        if (this.last_status) {
-          this._process_nodes(prefs, this.last_status);
-          this._process_exit_node(prefs, this.last_status);
+      this._client.request("GET", "/localapi/v0/prefs")
+        .then(
+          (prefs) => {
+            this._prefs = prefs;
+            this._parse_response();
+          },
+          (error) => console.error(error),
+        );
+    }
+
+    _parse_response() {
+      if (this._prefs) {
+        this._process_status(this._prefs);
+        this._process_dns(this._prefs);
+        this._process_routes(this._prefs);
+        this._process_lan(this._prefs);
+        this._process_shields(this._prefs);
+        this._process_ssh(this._prefs);
+        this._process_exit_node(this._prefs);
+        if (this._status) {
+          this._process_nodes(this._prefs, this._status);
         }
-      });
+      }
+    }
+
+    _update_prefs(prefs) {
+      const body = {
+        ...prefs,
+        ...Object.fromEntries(
+          Object.entries(prefs)
+            .map(([key, _]) => [`${key}set`, true]),
+        ),
+      }
+      this._client.request("PATCH", "/localapi/v0/prefs", body)
+        .then(
+          (prefs) => {
+            this._prefs = prefs;
+            this._parse_response();
+          },
+          (error) => console.error(error),
+        );
     }
   }
 );
-

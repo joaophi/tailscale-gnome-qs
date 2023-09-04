@@ -42,26 +42,17 @@ const TailscaleIndicator = GObject.registerClass(
       // Create the icon for the indicator
       const up = this._addIndicator();
       up.gicon = icon;
-      up.visible = false;
+      up.visible = tailscale.running;
       tailscale.bind_property("running", up, "visible", GObject.BindingFlags.DEFAULT);
 
       // Create the icon for the indicator
       const exit = this._addIndicator();
       exit.icon_name = "network-vpn-symbolic";
-      exit.visible = false;
+      exit.visible = tailscale.running && tailscale.exit_node != "";
 
-      let _up = false;
-      let _exit_node = false;
-      const setVisible = () => exit.visible = _up && _exit_node
-
-      tailscale.connect("notify::exit-node", (obj) => {
-        _exit_node = obj.exit_node != "";
-        setVisible();
-      });
-      tailscale.connect("notify::running", (obj) => {
-        _up = obj.running;
-        setVisible();
-      });
+      const setVisible = () => { exit.visible = tailscale.running && tailscale.exit_node != ""; }
+      tailscale.connect("notify::exit-node", () => setVisible());
+      tailscale.connect("notify::running", () => setVisible());
     }
   }
 );
@@ -137,7 +128,7 @@ const TailscaleMenuToggle = GObject.registerClass(
         menuEnabled: true,
       });
       this.title = "Tailscale";
-      tailscale.bind_property("running", this, "checked", GObject.BindingFlags.BIDIRECTIONAL);
+      tailscale.bind_property("running", this, "checked", GObject.BindingFlags.SYNC_CREATE | GObject.BindingFlags.BIDIRECTIONAL);
 
       // This function is unique to this class. It adds a nice header with an
       // icon, title and optional subtitle. It's recommended you do so for
@@ -146,12 +137,12 @@ const TailscaleMenuToggle = GObject.registerClass(
 
       // NODES
       const nodes = new PopupMenu.PopupMenuSection();
-      tailscale.connect("notify::nodes", (obj) => {
+      const update_nodes = () => {
         nodes.removeAll();
-        for (const node of obj.nodes) {
+        for (const node of tailscale.nodes) {
           const device_icon = !node.online ? "network-offline-symbolic" : ((node.os == "android" || node.os == "iOS") ? "phone-symbolic" : "computer-symbolic");
           const subtitle = node.exit_node ? _("disable exit node") : (node.exit_node_option ? _("use as exit node") : "");
-          const onClick = node.exit_node_option ? () => { tailscale.exit_node = node.exit_node ? "" : node.name } : null;
+          const onClick = node.exit_node_option ? () => { tailscale.exit_node = node.exit_node ? "" : node.id; } : null;
           const onLongClick = () => {
             if (!node.ips)
               return false;
@@ -164,7 +155,9 @@ const TailscaleMenuToggle = GObject.registerClass(
 
           nodes.addMenuItem(new TailscaleDeviceItem(device_icon, node.name, subtitle, onClick, onLongClick));
         }
-      });
+      }
+      tailscale.connect("notify::nodes", () => update_nodes());
+      update_nodes();
       this.menu.addMenuItem(nodes);
 
       // SEPARATOR
@@ -173,27 +166,27 @@ const TailscaleMenuToggle = GObject.registerClass(
       // PREFS
       const prefs = new PopupMenu.PopupSubMenuMenuItem(_("Settings"), false, {});
 
-      const routes = new PopupMenu.PopupSwitchMenuItem(_("Accept routes"), false, {});
+      const routes = new PopupMenu.PopupSwitchMenuItem(_("Accept routes"), tailscale.accept_routes, {});
       tailscale.connect("notify::accept-routes", (obj) => routes.setToggleState(obj.accept_routes));
       routes.connect("toggled", (item) => tailscale.accept_routes = item.state);
       prefs.menu.addMenuItem(routes);
 
-      const dns = new PopupMenu.PopupSwitchMenuItem(_("Accept DNS"), false, {});
+      const dns = new PopupMenu.PopupSwitchMenuItem(_("Accept DNS"), tailscale.accept_dns, {});
       tailscale.connect("notify::accept-dns", (obj) => dns.setToggleState(obj.accept_dns));
       dns.connect("toggled", (item) => tailscale.accept_dns = item.state);
       prefs.menu.addMenuItem(dns);
 
-      const lan = new PopupMenu.PopupSwitchMenuItem(_("Allow LAN access"), false, {});
+      const lan = new PopupMenu.PopupSwitchMenuItem(_("Allow LAN access"), tailscale.allow_lan_access, {});
       tailscale.connect("notify::allow-lan-access", (obj) => lan.setToggleState(obj.allow_lan_access));
       lan.connect("toggled", (item) => tailscale.allow_lan_access = item.state);
       prefs.menu.addMenuItem(lan);
 
-      const shields = new PopupMenu.PopupSwitchMenuItem(_("Shields up"), false, {});
+      const shields = new PopupMenu.PopupSwitchMenuItem(_("Shields up"), tailscale.shields_up, {});
       tailscale.connect("notify::shields-up", (obj) => shields.setToggleState(obj.shields_up));
       shields.connect("toggled", (item) => tailscale.shields_up = item.state);
       prefs.menu.addMenuItem(shields);
 
-      const ssh = new PopupMenu.PopupSwitchMenuItem(_("SSH"), false, {});
+      const ssh = new PopupMenu.PopupSwitchMenuItem(_("SSH"), tailscale.ssh, {});
       tailscale.connect("notify::ssh", (obj) => ssh.setToggleState(obj.ssh));
       ssh.connect("toggled", (item) => tailscale.ssh = item.state);
       prefs.menu.addMenuItem(ssh);
