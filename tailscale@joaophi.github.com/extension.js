@@ -17,22 +17,27 @@
  */
 
 /* exported init */
-import Clutter from "gi://Clutter";
-import GObject from "gi://GObject";
-import Gio from "gi://Gio";
-import St from "gi://St";
+const { Clutter, GObject, Gio, GLib, St } = imports.gi;
 
-import { Extension, gettext as _ } from "resource:///org/gnome/shell/extensions/extension.js";
+const ExtensionUtils = imports.misc.extensionUtils;
+const Me = ExtensionUtils.getCurrentExtension();
 
-import * as Main from "resource:///org/gnome/shell/ui/main.js";
-import * as PopupMenu from "resource:///org/gnome/shell/ui/popupMenu.js";
-import * as QuickSettings from "resource:///org/gnome/shell/ui/quickSettings.js";
+const { Extension } = Me.imports.compat;
+const Gettext = imports.gettext;
+const Domain = Gettext.domain(Me.metadata.uuid);
+const _ = Domain.gettext;
+const ngettext = Domain.ngettext;
+
+const Main = imports.ui.main;
+const PopupMenu = imports.ui.popupMenu;
+const QuickSettings = imports.ui.quickSettings;
 
 // This is the live instance of the Quick Settings menu
 const QuickSettingsMenu = Main.panel.statusArea.quickSettings;
 
-import { Tailscale } from "./tailscale.js";
-import { clearInterval, clearSources, setInterval } from "./timeout.js";
+const { Tailscale } = Me.imports.tailscale;
+const { clearInterval, clearSources, setInterval } = Me.imports.timeout;
+
 
 const TailscaleIndicator = GObject.registerClass(
   class TailscaleIndicator extends QuickSettings.SystemIndicator {
@@ -212,7 +217,7 @@ const TailscaleMenuToggle = GObject.registerClass(
   }
 );
 
-export default class TailscaleExtension extends Extension {
+class TailscaleExtension extends Extension {
   enable() {
     const icon = Gio.icon_new_for_string(`${this.path}/icons/tailscale-symbolic.svg`);
 
