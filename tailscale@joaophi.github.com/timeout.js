@@ -1,4 +1,4 @@
-import GLib from "gi://GLib";
+const { GLib } = imports.gi;
 
 const SOURCES = [];
 
@@ -24,14 +24,14 @@ const clearSource = (handle) => {
     }
 }
 
-export const clearSources = () => {
+var clearSources = () => {
     while (SOURCES.length > 0) {
         clearSource(SOURCES[0]);
     }
 };
 
-export const setTimeout = (func, delay, ...args) => addSource(func, delay, args, true);
-export const setInterval = (func, delay, ...args) => addSource(func, delay, args, false);
+var setTimeout = (func, delay, ...args) => addSource(func, delay, args, true);
+var setInterval = (func, delay, ...args) => addSource(func, delay, args, false);
 
-export const clearTimeout = clearSource;
-export const clearInterval = clearSource;
+var clearTimeout = clearSource;
+var clearInterval = clearSource;
