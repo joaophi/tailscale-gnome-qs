@@ -205,7 +205,7 @@ export default class TailscaleExtension extends Extension {
       this._indicator.quickSettingsItems.push(this._menu);
       QuickSettingsMenu.addExternalIndicator(this._indicator);
     } else {
-      GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
+      this._idle = GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
         if (!QuickSettingsMenu._indicators.get_first_child())
           return GLib.SOURCE_CONTINUE;
 
@@ -221,6 +221,11 @@ export default class TailscaleExtension extends Extension {
   }
 
   disable() {
+    if (this._idle) {
+      GLib.Source.remove(this._idle);
+      this._idle = null;
+    }
+
     this._menu.destroy();
     this._menu = null;
 
