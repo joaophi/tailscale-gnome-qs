@@ -17,5 +17,11 @@ build:
 install:
 	gnome-extensions install $(BUNDLE_PATH) --force
 
+enable:
+	dbus-run-session -- gnome-extensions enable tailscale@joaophi.github.com
+
+run:
+	dbus-run-session -- gnome-shell --nested --wayland
+
 clean:
 	@rm -fv $(BUNDLE_PATH)

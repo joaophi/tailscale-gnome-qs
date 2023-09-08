@@ -1,0 +1,53 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Build",
+            "type": "make",
+            "makeFileRelativePath": "Makefile",
+            "targetName": "build"
+        },
+        {
+            "label": "Install",
+            "type": "make",
+            "makeFileRelativePath": "Makefile",
+            "targetName": "install",
+            "dependsOn": [
+                "Build"
+            ]
+        },
+        {
+            "label": "Enable",
+            "type": "make",
+            "makeFileRelativePath": "Makefile",
+            "targetName": "enable",
+            "dependsOn": [
+                "Build",
+                "Install"
+            ]
+        },
+        {
+            "label": "Run",
+            "type": "make",
+            "makeFileRelativePath": "Makefile",
+            "targetName": "run",
+            "dependsOn": [
+                "Build",
+                "Install",
+                "Enable"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "Clean",
+            "type": "make",
+            "makeFileRelativePath": "Makefile",
+            "targetName": "clean"
+        }
+    ]
+}

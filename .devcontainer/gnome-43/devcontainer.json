@@ -1,0 +1,52 @@
+{
+    "name": "GNOME 43",
+    "build": {
+        "dockerfile": "../Dockerfile",
+        "args": {
+            "FEDORA_VERSION": "37"
+        }
+    },
+    "runArgs": [
+        "--network=host",
+        "--cap-add=SYS_PTRACE",
+        "--security-opt=seccomp:unconfined",
+        "--security-opt=apparmor:unconfined"
+    ],
+    "features": {
+        "ghcr.io/devcontainers/features/common-utils": {
+			"installZsh": "true",
+			"username": "vscode",
+			"userUid": "1000",
+			"userGid": "1000",
+			"upgradePackages": "true"
+		}
+    },
+    "mounts": [
+        {
+            "type": "bind",
+            "source": "/tmp/.X11-unix",
+            "target": "/tmp/.X11-unix"
+        },
+        {
+            "type": "bind",
+            "source": "/run/dbus/system_bus_socket",
+            "target": "/run/dbus/system_bus_socket"
+        },
+        {
+            "type": "bind",
+            "source": "/var/run/tailscale/tailscaled.sock",
+            "target": "/var/run/tailscale/tailscaled.sock"
+        }
+    ],
+    "remoteUser": "vscode",
+    "remoteEnv": {
+        "DISPLAY": "${localEnv:DISPLAY}"
+    },
+    "customizations": {
+		"vscode": {
+			"extensions": [
+				"carlos-algms.make-task-provider"
+			]
+		}
+	}
+}

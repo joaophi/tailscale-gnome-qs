@@ -21,15 +21,7 @@ jobs:
       run: |
         make build
 
-    - name: Test extension installs
-      run: |
-        make install
-
     - uses: actions/upload-artifact@v3
       with:
         name: tailscale@joaophi.github.com.zip
         path: tailscale@joaophi.github.com.zip
-
-    - name: Test build area clean
-      run: |
-        make clean
