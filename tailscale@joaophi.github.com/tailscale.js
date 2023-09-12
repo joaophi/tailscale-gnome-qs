@@ -111,8 +111,6 @@ export const Tailscale = GObject.registerClass(
       this._exit_node = "";
       this._nodes = [];
       this._cancelable = new Gio.Cancellable();
-      this.refresh_status();
-      this.refresh_prefs();
       this._listen();
     }
 
@@ -280,53 +278,46 @@ export const Tailscale = GObject.registerClass(
       return this._nodes;
     }
 
-    refresh_status() {
-      this._client.request("GET", "/localapi/v0/status")
-        .then(
-          (status) => {
-            this._peers = Object.values(status.Peer);
-            this._parse_response();
-          },
-          (error) => console.error(error),
-        );
-    }
-
-    refresh_prefs() {
-      this._client.request("GET", "/localapi/v0/prefs")
-        .then(
-          (prefs) => {
-            this._prefs = prefs;
-            this._parse_response();
-          },
-          (error) => console.error(error),
-        );
-    }
-
     async _listen() {
-      try {
-        for await (const update of this._client.stream("GET", "/localapi/v0/watch-ipn-bus", this._cancelable)) {
-          let should_update = false;
-          if (update.Prefs) {
-            this._prefs = update.Prefs;
-            should_update = true;
+      const setTimeout = (func, delay, ...args) => GLib.timeout_add(GLib.PRIORITY_DEFAULT, delay, () => {
+        func(...args);
+        return GLib.SOURCE_REMOVE;
+      });
+      const delay = (delay) => new Promise(resolve => setTimeout(resolve, delay));
+
+      while (true) {
+        try {
+          const status = await this._client.request("GET", "/localapi/v0/status")
+          this._peers = Object.values(status.Peer);
+          this._prefs = await this._client.request("GET", "/localapi/v0/prefs")
+          this._parse_response();
+
+          for await (const update of this._client.stream("GET", "/localapi/v0/watch-ipn-bus", this._cancelable)) {
+            let should_update = false;
+            if (update.Prefs) {
+              this._prefs = update.Prefs;
+              should_update = true;
+            }
+            if (update.NetMap) {
+              this._peers = update.NetMap.Peers.map(peer => ({
+                ID: peer.StableID,
+                DNSName: peer.Name,
+                OS: peer.Hostinfo.OS,
+                ExitNodeOption: peer.AllowedIPs?.includes("0.0.0.0/0"),
+                Online: peer.Online,
+                TailscaleIPs: peer.Addresses.map(address => address.split("/")[0]),
+              }));
+              should_update = true;
+            }
+            if (should_update) {
+              this._parse_response();
+            }
           }
-          if (update.NetMap) {
-            this._peers = update.NetMap.Peers.map(peer => ({
-              ID: peer.StableID,
-              DNSName: peer.Name,
-              OS: peer.Hostinfo.OS,
-              ExitNodeOption: peer.AllowedIPs?.includes("0.0.0.0/0"),
-              Online: peer.Online,
-              TailscaleIPs: peer.Addresses.map(address => address.split("/")[0]),
-            }));
-            should_update = true;
-          }
-          if (should_update) {
-            this._parse_response();
-          }
+        } catch (error) {
+          console.error(error);
+          this._process_running({ WantRunning: false });
         }
-      } catch (error) {
-        console.error(error);
+        await delay(5000);
       }
     }
 
