@@ -18,7 +18,6 @@
 
 /* exported init */
 import Clutter from "gi://Clutter";
-import GLib from "gi://GLib";
 import GObject from "gi://GObject";
 import Gio from "gi://Gio";
 import St from "gi://St";
@@ -33,6 +32,7 @@ import * as QuickSettings from "resource:///org/gnome/shell/ui/quickSettings.js"
 const QuickSettingsMenu = Main.panel.statusArea.quickSettings;
 
 import { Tailscale } from "./tailscale.js";
+import { clearInterval, clearSources, setInterval } from "./timeout.js";
 
 const TailscaleIndicator = GObject.registerClass(
   class TailscaleIndicator extends QuickSettings.SystemIndicator {
@@ -205,9 +205,9 @@ export default class TailscaleExtension extends Extension {
       this._indicator.quickSettingsItems.push(this._menu);
       QuickSettingsMenu.addExternalIndicator(this._indicator);
     } else {
-      this._idle = GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
+      const timerHandle = setInterval(() => {
         if (!QuickSettingsMenu._indicators.get_first_child())
-          return GLib.SOURCE_CONTINUE;
+          return;
 
         QuickSettingsMenu._indicators.insert_child_at_index(this._indicator, 0);
         QuickSettingsMenu._addItems([this._menu]);
@@ -215,16 +215,14 @@ export default class TailscaleExtension extends Extension {
           this._menu,
           QuickSettingsMenu._backgroundApps.quickSettingsItems[0]
         );
-        return GLib.SOURCE_REMOVE;
-      });
+
+        clearInterval(timerHandle);
+      }, 100);
     }
   }
 
   disable() {
-    if (this._idle) {
-      GLib.Source.remove(this._idle);
-      this._idle = null;
-    }
+    clearSources();
 
     this._menu.destroy();
     this._menu = null;

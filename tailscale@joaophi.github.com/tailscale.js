@@ -3,6 +3,8 @@ import GObject from "gi://GObject";
 import Gio from "gi://Gio";
 import Soup from "gi://Soup?version=3.0";
 
+import { setTimeout } from "./timeout";
+
 class TailscaleApiClient {
   constructor() {
     const address = new Gio.UnixSocketAddress({
@@ -279,10 +281,6 @@ export const Tailscale = GObject.registerClass(
     }
 
     async _listen() {
-      const setTimeout = (func, delay, ...args) => GLib.timeout_add(GLib.PRIORITY_DEFAULT, delay, () => {
-        func(...args);
-        return GLib.SOURCE_REMOVE;
-      });
       const delay = (delay) => new Promise(resolve => setTimeout(resolve, delay));
 
       while (true) {
@@ -314,6 +312,9 @@ export const Tailscale = GObject.registerClass(
             }
           }
         } catch (error) {
+          if (this._cancelable.is_cancelled()) {
+            break;
+          }
           console.error(error);
           this._process_running({ WantRunning: false });
         }
