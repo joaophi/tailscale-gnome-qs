@@ -3,7 +3,7 @@ import GObject from "gi://GObject";
 import Gio from "gi://Gio";
 import Soup from "gi://Soup?version=3.0";
 
-import { setTimeout } from "./timeout";
+import { setTimeout } from "./timeout.js";
 
 class TailscaleApiClient {
   constructor() {
