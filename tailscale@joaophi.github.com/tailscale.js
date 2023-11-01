@@ -138,9 +138,11 @@ export const Tailscale = GObject.registerClass(
           exit_node_option: peer.ExitNodeOption,
           online: peer.Online,
           ips: peer.TailscaleIPs,
+          mullvad: peer.Tags.includes("tag:mullvad-exit-node"),
         }))
         .sort((a, b) =>
-          (b.online - a.online)
+          (b.exit_node - a.exit_node)
+          || (b.online - a.online)
           || (b.exit_node_option - a.exit_node_option)
           || a.name.localeCompare(b.name)
         );
@@ -304,6 +306,7 @@ export const Tailscale = GObject.registerClass(
                 ExitNodeOption: peer.AllowedIPs?.includes("0.0.0.0/0"),
                 Online: peer.Online,
                 TailscaleIPs: peer.Addresses.map(address => address.split("/")[0]),
+                Tags: peer.Tags,
               }));
               should_update = true;
             }

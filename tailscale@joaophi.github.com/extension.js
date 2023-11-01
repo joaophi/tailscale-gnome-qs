@@ -137,8 +137,16 @@ const TailscaleMenuToggle = GObject.registerClass(
       const nodes = new PopupMenu.PopupMenuSection();
       const update_nodes = (obj) => {
         nodes.removeAll();
+        const mullvad = new PopupMenu.PopupSubMenuMenuItem("Mullvad", false, {});
         for (const node of obj.nodes) {
-          const device_icon = !node.online ? "network-offline-symbolic" : ((node.os == "android" || node.os == "iOS") ? "phone-symbolic" : "computer-symbolic");
+          const menu = (node.mullvad && !node.exit_node) ? mullvad.menu : nodes;
+          const device_icon = !node.online
+            ? "network-offline-symbolic"
+            : ((node.os == "android" || node.os == "iOS")
+              ? "phone-symbolic"
+              : (node.mullvad
+                ? "network-vpn-symbolic"
+                : "computer-symbolic"));
           const subtitle = node.exit_node ? _("disable exit node") : (node.exit_node_option ? _("use as exit node") : "");
           const onClick = node.exit_node_option ? () => { tailscale.exit_node = node.exit_node ? "" : node.id; } : null;
           const onLongClick = () => {
@@ -151,7 +159,12 @@ const TailscaleMenuToggle = GObject.registerClass(
             return true;
           };
 
-          nodes.addMenuItem(new TailscaleDeviceItem(device_icon, node.name, subtitle, onClick, onLongClick));
+          menu.addMenuItem(new TailscaleDeviceItem(device_icon, node.name, subtitle, onClick, onLongClick));
+        }
+        if (mullvad.menu.isEmpty()) {
+          mullvad.destroy();
+        } else {
+          nodes.addMenuItem(mullvad);
         }
       }
       tailscale.connect("notify::nodes", (obj) => update_nodes(obj));
