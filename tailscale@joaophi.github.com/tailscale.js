@@ -138,7 +138,7 @@ export const Tailscale = GObject.registerClass(
           exit_node_option: peer.ExitNodeOption,
           online: peer.Online,
           ips: peer.TailscaleIPs,
-          mullvad: peer.Tags.includes("tag:mullvad-exit-node"),
+          mullvad: peer.Tags?.includes("tag:mullvad-exit-node") || false,
         }))
         .sort((a, b) =>
           (b.exit_node - a.exit_node)
