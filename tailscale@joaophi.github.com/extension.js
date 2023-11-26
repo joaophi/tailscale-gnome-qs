@@ -138,43 +138,100 @@ const TailscaleMenuToggle = GObject.registerClass(
       });
       this.menu.setHeader(icon, this.title, tailscale.exit_node_name);
 
+      tailscale.connect("notify::exit-node", () => {
+        this.subtitle = tailscale.exit_node ? tailscale.exit_node_name : "";
+        this.menu.setHeader(icon, this.title, this.subtitle);
+      });
+
       // NODES
-      const nodes = new PopupMenu.PopupMenuSection();
+      const nodes = new ScrollablePopupMenu();
       const update_nodes = (obj) => {
         nodes.removeAll();
-        const mullvad = new PopupMenu.PopupSubMenuMenuItem("Mullvad", false, {});
-        for (const node of obj.nodes) {
-          const menu = (node.mullvad && !node.exit_node) ? mullvad.menu : nodes;
-          const device_icon = !node.online
-            ? "network-offline-symbolic"
-            : ((node.os == "android" || node.os == "iOS")
-              ? "phone-symbolic"
-              : (node.mullvad
-                ? "network-vpn-symbolic"
-                : "computer-symbolic"));
+
+        // Prepare menu sections for non-Mullvad and Mullvad nodes
+        const nonMullvadSection = new PopupMenu.PopupMenuSection();
+        const mullvadSection = new PopupMenu.PopupMenuSection();
+
+        const nonMullvadNodes = obj.nodes.filter(node => !node.mullvad);
+        const mullvadNodes = obj.nodes.filter(node => node.mullvad);
+        const mullvadExitNode = mullvadNodes.find(node => node.exit_node);
+
+        // Treat Mullvad Exit Node differently
+        if (mullvadExitNode) {
+          const exitMenuItem = createTailscaleDeviceItem(
+            mullvadExitNode,
+            `${mullvadExitNode.location.Country} (${mullvadExitNode.name})`,
+            _("disable exit node"),
+            'network-vpn-symbolic',
+            tailscale
+          );
+          mullvadSection.addMenuItem(exitMenuItem);
+        }
+
+        // If there are mullvad nodes, group them by country
+        if (mullvadNodes.length > 0) {
+          const mullvadByCountry = mullvadNodes.reduce((acc, node) => {
+            const country = node.location.Country;
+            if (!acc[country]) acc[country] = [];
+            acc[country].push(node);
+            return acc;
+          }, {});
+
+          // Sort countries and create menu items
+          Object.keys(mullvadByCountry).sort().forEach(country => {
+            const countryNodes = mullvadByCountry[country];
+            if (countryNodes.length === 1) {
+              const node = countryNodes[0];
+              if (!node.exit_node) {
+                const menuItem = createTailscaleDeviceItem(
+                  node,
+                  `${node.location.Country} (${node.name})`,
+                  node.exit_node ? _("disable exit node") : node.online ? _("use as exit node") : _("offline"),
+                  'network-vpn-symbolic',
+                  tailscale
+                );
+                mullvadSection.addMenuItem(menuItem);
+              }
+            } else {
+              const countrySubMenu = new PopupMenu.PopupSubMenuMenuItem(country, true);
+              countryNodes.forEach(node => {
+                const menuItem = createTailscaleDeviceItem(
+                  node,
+                  `${node.location.City} (${node.name})`,
+                  node.exit_node ? _("disable exit node") : node.online ? _("use as exit node") : _("offline"),
+                  'network-vpn-symbolic',
+                  tailscale
+                );
+                countrySubMenu.menu.addMenuItem(menuItem);
+              });
+              mullvadSection.addMenuItem(countrySubMenu);
+            }
+          });
+        }
+
+        // Add non-Mullvad nodes to the nonMullvadSection
+        nonMullvadNodes.forEach(node => {
+          const deviceIcon = node.online
+            ? (node.os === "android" || node.os === "iOS" ? "phone-symbolic" : "computer-symbolic")
+            : "network-offline-symbolic";
           const subtitle = node.exit_node ? _("disable exit node") : (node.exit_node_option ? _("use as exit node") : "");
-          const onClick = node.exit_node_option ? () => { tailscale.exit_node = node.exit_node ? "" : node.id; } : null;
-          const onLongClick = () => {
-            if (!node.ips)
-              return false;
+          const item = createTailscaleDeviceItem(node, node.name, subtitle, deviceIcon, tailscale);
+          nonMullvadSection.addMenuItem(item);
+        });
 
-            St.Clipboard.get_default().set_text(St.ClipboardType.CLIPBOARD, node.ips[0]);
-            St.Clipboard.get_default().set_text(St.ClipboardType.PRIMARY, node.ips[0]);
-            Main.osdWindowManager.show(-1, icon, _("IP address has been copied to the clipboard"));
-            return true;
-          };
+        // Add sections to ScrollablePopupMenu with labels
+        if (nonMullvadNodes.length > 0) {
+          nodes.addSectionWithLabel(nonMullvadSection, _("Nodes"));
+        }
+        if (mullvadNodes.length > 0) {
+          nodes.addSectionWithLabel(mullvadSection, _("Mullvad Nodes"));
+        }
 
-          menu.addMenuItem(new TailscaleDeviceItem(device_icon, node.name, subtitle, onClick, onLongClick));
-        }
-        if (mullvad.menu.isEmpty()) {
-          mullvad.destroy();
-        } else {
-          nodes.addMenuItem(mullvad);
-        }
-      }
+        // Add the entire nodes section to the main menu
+        this.menu.addMenuItem(nodes);
+      };
       tailscale.connect("notify::nodes", (obj) => update_nodes(obj));
       update_nodes(tailscale);
-      this.menu.addMenuItem(nodes);
 
       // SEPARATOR
       this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
@@ -256,4 +313,74 @@ export default class TailscaleExtension extends Extension {
 function init(meta) {
   ExtensionUtils.initTranslations(Me.metadata.uuid);
   return new TailscaleExtension(meta.uuid, Me.path);
+}
+
+const ScrollablePopupMenu = GObject.registerClass(
+  class ScrollablePopupMenu extends PopupMenu.PopupBaseMenuItem {
+    _init() {
+      super._init({
+        hover: false,
+        activate: false,
+      });
+
+      this.scrollView = new St.ScrollView({
+        style_class: 'vfade',
+        hscrollbar_policy: St.PolicyType.NEVER,
+        vscrollbar_policy: St.PolicyType.AUTOMATIC,
+        enable_mouse_scrolling: true,
+      });
+
+      this.box = new St.BoxLayout({ width: 300, vertical: true });
+      this.scrollView.add_actor(this.box);
+      this.actor.add_actor(this.scrollView);
+
+      this.scrollView.connect('scroll-event', this._onScrollEvent.bind(this));
+
+      this.scrollView.set_height(300);
+
+      this.addSection = (section) => {
+        this.box.add_actor(section.actor);
+      };
+
+      this.removeAll = () => {
+        this.box.destroy_all_children();
+      };
+
+      this.addSectionWithLabel = (section, labelText) => {
+        if (labelText) {
+          const label = new St.Label({
+            text: labelText,
+            x_expand: true,
+            y_expand: true,
+            style_class: 'popup-menu-section-title'
+          });
+          this.box.add_actor(label);
+        }
+        this.box.add_actor(section.actor);
+      };
+    }
+
+    _onScrollEvent(actor, event) {
+      if (!actor.has_key_focus()) {
+        actor.grab_key_focus();
+      }
+    }
+  }
+);
+
+function createTailscaleDeviceItem(node, primaryText, secondaryText, iconName, tailscale) {
+  const onClick = node.exit_node_option ? () => { tailscale.exit_node = node.exit_node ? "" : node.id; } : null;
+  const onLongClick = () => {
+    if (!node.ips)
+      return false;
+
+    const gicon = Gio.Icon.new_for_string(iconName);
+    St.Clipboard.get_default().set_text(St.ClipboardType.CLIPBOARD, node.ips[0]);
+    St.Clipboard.get_default().set_text(St.ClipboardType.PRIMARY, node.ips[0]);
+    Main.osdWindowManager.show(-1, gicon, _("IP address has been copied to the clipboard"));
+    return true;
+  };
+
+  const item = new TailscaleDeviceItem(iconName, primaryText, secondaryText, onClick, onLongClick);
+  return item;
 }

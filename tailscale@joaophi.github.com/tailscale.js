@@ -167,9 +167,9 @@ export const Tailscale = GObject.registerClass(
       const exit_node_id = prefs.ExitNodeID;
       if (exit_node_id != this._exit_node) {
         this._exit_node = exit_node_id;
-        this.notify("exit-node");
         const exitNodePeer = this._peers.find(peer => peer.ID === exit_node_id);
         this._exit_node_name = exitNodePeer ? exitNodePeer.DNSName.split(".")[0] : null;
+        this.notify("exit-node");
         this.notify("exit-node-name");
       }
     }
