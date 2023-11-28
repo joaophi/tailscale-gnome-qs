@@ -125,13 +125,18 @@ const TailscaleMenuToggle = GObject.registerClass(
         toggleMode: true,
         menuEnabled: true,
       });
+
       this.title = "Tailscale";
       tailscale.bind_property("running", this, "checked", GObject.BindingFlags.SYNC_CREATE | GObject.BindingFlags.BIDIRECTIONAL);
 
       // This function is unique to this class. It adds a nice header with an
       // icon, title and optional subtitle. It's recommended you do so for
       // consistency with other menus.
-      this.menu.setHeader(icon, this.title);
+      tailscale.connect("notify::exit-node-name", () => {
+        this.subtitle = tailscale.exit_node_name;
+        this.menu.setHeader(icon, this.title, this.subtitle);
+      });
+      this.menu.setHeader(icon, this.title, tailscale.exit_node_name);
 
       // NODES
       const nodes = new PopupMenu.PopupMenuSection();
