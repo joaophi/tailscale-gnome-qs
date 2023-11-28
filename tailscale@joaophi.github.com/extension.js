@@ -55,6 +55,17 @@ const TailscaleIndicator = GObject.registerClass(
   }
 );
 
+const PopupScrollableSubMenuMenuItem = GObject.registerClass(
+  class PopupScrollableSubMenuMenuItem extends PopupMenu.PopupSubMenuMenuItem {
+    _init(props) {
+      super._init(props);
+
+      this.menu._needsScrollbar = () => true;
+      this.menu.box.height = 200;
+    }
+  }
+)
+
 const TailscaleDeviceItem = GObject.registerClass(
   class TailscaleDeviceItem extends PopupMenu.PopupBaseMenuItem {
     _init(icon_name, text, subtitle, onClick, onLongClick) {
@@ -142,9 +153,19 @@ const TailscaleMenuToggle = GObject.registerClass(
       const nodes = new PopupMenu.PopupMenuSection();
       const update_nodes = (obj) => {
         nodes.removeAll();
-        const mullvad = new PopupMenu.PopupSubMenuMenuItem("Mullvad", false, {});
+
+        // Prepare menu sections for non-Mullvad and Mullvad nodes
+        const peers = new PopupScrollableSubMenuMenuItem("Nodes", false, {});
+        const mullvad = new PopupScrollableSubMenuMenuItem("Mullvad", false, {});
+
+        const useSubmenu = obj.nodes.filter(node => !node.mullvad).length > 5;
+
         for (const node of obj.nodes) {
-          const menu = (node.mullvad && !node.exit_node) ? mullvad.menu : nodes;
+          const menu = (node.mullvad && !node.exit_node)
+            ? mullvad.menu
+            : (useSubmenu && !node.exit_node)
+              ? peers.menu
+              : nodes;
           const device_icon = !node.online
             ? "network-offline-symbolic"
             : ((node.os == "android" || node.os == "iOS")
@@ -165,6 +186,11 @@ const TailscaleMenuToggle = GObject.registerClass(
           };
 
           menu.addMenuItem(new TailscaleDeviceItem(device_icon, node.name, subtitle, onClick, onLongClick));
+        }
+        if (peers.menu.isEmpty()) {
+          peers.destroy();
+        } else {
+          nodes.addMenuItem(peers);
         }
         if (mullvad.menu.isEmpty()) {
           mullvad.destroy();
