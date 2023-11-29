@@ -140,6 +140,21 @@ const TailscaleMenuToggle = GObject.registerClass(
 
       // NODES
       const nodes = new PopupMenu.PopupMenuSection();
+      const scrollView = new St.ScrollView({
+        style_class: 'vfade',
+        hscrollbar_policy: St.PolicyType.NEVER,
+        vscrollbar_policy: St.PolicyType.AUTOMATIC,
+        x_expand: true,
+        y_expand: true,
+        clip_to_allocation: true,
+      });
+      const MAX_SCROLL_VIEW_HEIGHT = 300;
+      scrollView.add_actor(nodes.actor);
+      const scrollMenuItem = new PopupMenu.PopupBaseMenuItem({
+        reactive: false,
+        can_focus: false
+      });
+      scrollMenuItem.add_child(scrollView);
       const update_nodes = (obj) => {
         nodes.removeAll();
         const mullvad = new PopupMenu.PopupSubMenuMenuItem("Mullvad", false, {});
@@ -171,10 +186,23 @@ const TailscaleMenuToggle = GObject.registerClass(
         } else {
           nodes.addMenuItem(mullvad);
         }
+
+        let totalHeight = 0;
+        if (nodes.actor && nodes.actor.get_children) {
+          nodes.actor.get_children().forEach(child => {
+            let [minHeight, naturalHeight] = child.get_preferred_height(-1);
+            totalHeight += naturalHeight;
+
+            child.connect('key-focus-in', (actor) => {
+              adjustScrollView(actor, scrollView);
+            });
+          });
+        }
+        scrollView.set_height(Math.min(totalHeight, MAX_SCROLL_VIEW_HEIGHT));
       }
       tailscale.connect("notify::nodes", (obj) => update_nodes(obj));
       update_nodes(tailscale);
-      this.menu.addMenuItem(nodes);
+      this.menu.addMenuItem(scrollMenuItem);
 
       // SEPARATOR
       this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
@@ -256,4 +284,23 @@ export default class TailscaleExtension extends Extension {
 function init(meta) {
   ExtensionUtils.initTranslations(Me.metadata.uuid);
   return new TailscaleExtension(meta.uuid, Me.path);
+}
+
+function adjustScrollView(actor, scrollView) {
+  let scrollViewAlloc = scrollView.get_allocation_box();
+  let actorAlloc = actor.get_allocation_box();
+
+  let scrollAdjustment = scrollView.get_vscroll_bar().get_adjustment();
+  let value = scrollAdjustment.value;
+  let lower = scrollAdjustment.lower;
+  let upper = scrollAdjustment.upper;
+  let pageSize = scrollAdjustment.page_size;
+
+  if (actorAlloc.y1 < scrollViewAlloc.y1) {
+    value = Math.max(actorAlloc.y1, lower);
+  } else if (actorAlloc.y2 > scrollViewAlloc.y2) {
+    value = Math.min(actorAlloc.y2 - pageSize, upper - pageSize);
+  }
+
+  scrollAdjustment.value = value;
 }
