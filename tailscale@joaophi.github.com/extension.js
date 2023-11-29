@@ -60,6 +60,7 @@ const TailscaleDeviceItem = GObject.registerClass(
     _init(icon_name, text, subtitle, onClick, onLongClick) {
       super._init({
         activate: onClick,
+        can_focus: true,
       });
 
       const icon = new St.Icon({
@@ -321,6 +322,7 @@ const ScrollablePopupMenu = GObject.registerClass(
       super._init({
         hover: false,
         activate: false,
+        can_focus: false,
       });
 
       this.scrollView = new St.ScrollView({
@@ -333,6 +335,7 @@ const ScrollablePopupMenu = GObject.registerClass(
       this.box = new St.BoxLayout({ width: 300, vertical: true });
       this.scrollView.add_actor(this.box);
       this.actor.add_actor(this.scrollView);
+      this.actor.add_style_class_name('scrollable-popup-menu');
 
       this.scrollView.connect('scroll-event', this._onScrollEvent.bind(this));
 
