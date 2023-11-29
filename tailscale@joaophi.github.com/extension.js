@@ -336,14 +336,16 @@ const ScrollablePopupMenu = GObject.registerClass(
 
       this.scrollView.connect('scroll-event', this._onScrollEvent.bind(this));
 
-      this.scrollView.set_height(300);
+      this.MAX_HEIGHT = 300;
 
       this.addSection = (section) => {
         this.box.add_actor(section.actor);
+        this.updateHeight();
       };
 
       this.removeAll = () => {
         this.box.destroy_all_children();
+        this.updateHeight();
       };
 
       this.addSectionWithLabel = (section, labelText) => {
@@ -357,6 +359,15 @@ const ScrollablePopupMenu = GObject.registerClass(
           this.box.add_actor(label);
         }
         this.box.add_actor(section.actor);
+        this.updateHeight();
+      };
+
+      this.updateHeight = () => {
+        let totalHeight = 0;
+        this.box.get_children().forEach(child => {
+          totalHeight += child.get_preferred_height(-1)[1];
+        });
+        this.scrollView.set_height(Math.min(totalHeight, this.MAX_HEIGHT));
       };
     }
 
