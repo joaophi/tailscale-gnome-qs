@@ -214,7 +214,7 @@ const TailscaleMenuToggle = GObject.registerClass(
 
 export default class TailscaleExtension extends Extension {
   enable() {
-    const icon = Gio.icon_new_for_string(`${this.path}/icons/tailscale.svg`);
+    const icon = Gio.icon_new_for_string(`${this.path}/icons/tailscale-symbolic.svg`);
 
     this._tailscale = new Tailscale();
     this._indicator = new TailscaleIndicator(icon, this._tailscale);
