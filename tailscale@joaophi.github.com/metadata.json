@@ -4,7 +4,8 @@
   "uuid": "tailscale@joaophi.github.com",
   "shell-version": [
     "45",
-    "46"
+    "46",
+    "47"
   ],
   "url": "https://github.com/joaophi/tailscale-gnome-qs",
   "gettext-domain": "tailscale@joaophi.github.com"
