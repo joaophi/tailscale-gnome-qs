@@ -52,3 +52,8 @@ msgstr "Scudi alzati"
 #: extension.js:189
 msgid "SSH"
 msgstr "SSH"
+
+#: extension.js:276
+msgid "Profiles"
+msgstr "Profili"
+

@@ -116,6 +116,43 @@ const TailscaleDeviceItem = GObject.registerClass(
   }
 );
 
+const TailscaleProfileItem = GObject.registerClass(
+  class TailscaleProfileItem extends PopupMenu.PopupBaseMenuItem {
+    _init(title, subtitle, enabled, onClick) {
+      super._init({
+        activate: onClick,
+      });
+
+      const label = new St.Label({
+        x_expand: true,
+      });
+      this.add_child(label);
+      label.text = title;
+
+      const sub = new St.Label({
+        style_class: 'device-subtitle',
+      });
+      this.add_child(sub);
+      sub.text = subtitle;
+
+      if (enabled) {
+        const icon = new St.Icon({
+          style_class: 'popup-menu-icon',
+        });
+        this.add_child(icon);
+        icon.icon_name = 'dialog-ok'
+      }
+
+      this.connect('activate', () => onClick());
+    }
+
+    activate(event) {
+      if (this._activatable)
+        this.emit('activate', event);
+    }
+  }
+);
+
 const TailscaleMenuToggle = GObject.registerClass(
   class TailscaleMenuToggle extends QuickSettings.QuickMenuToggle {
     _init(icon, tailscale) {
@@ -208,6 +245,20 @@ const TailscaleMenuToggle = GObject.registerClass(
       prefs.menu.addMenuItem(ssh);
 
       this.menu.addMenuItem(prefs);
+
+      // PROFILES
+      const profiles = new PopupMenu.PopupSubMenuMenuItem(_("Profiles"), false, {});
+      const update_profiles = (obj) => {
+        profiles.menu.removeAll();
+        for (const p of obj.profiles) {
+          let enabled = obj._prefs.ControlURL === p.ControlURL;
+          const onClick = () => { tailscale.profiles = p.ID; }
+          profiles.menu.addMenuItem(new TailscaleProfileItem(p.Name, p.NetworkProfile.DomainName, enabled, onClick));
+        }
+      }
+      tailscale.connect("notify::profiles", (obj) => update_profiles(obj));
+      update_nodes(tailscale);
+      this.menu.addMenuItem(profiles);
     }
   }
 );

@@ -103,6 +103,11 @@ export const Tailscale = GObject.registerClass(
         GObject.ParamFlags.READABLE,
         []
       ),
+      "profiles": GObject.ParamSpec.jsobject(
+        "profiles", "", "",
+        GObject.ParamFlags.READABLE,
+        []
+      ),
     },
   },
   class Tailscale extends GObject.Object {
@@ -118,6 +123,7 @@ export const Tailscale = GObject.registerClass(
       this._exit_node = "";
       this._exit_node_name = null;
       this._nodes = [];
+      this._profiles = [];
       this._cancelable = new Gio.Cancellable();
       this._listen();
     }
@@ -299,6 +305,14 @@ export const Tailscale = GObject.registerClass(
       return this._nodes;
     }
 
+    get profiles() {
+      return this._profiles;
+    }
+
+    set profiles(value) {
+      this._update_profile(value);
+    }
+
     async _listen() {
       const delay = (delay) => new Promise(resolve => setTimeout(resolve, delay));
 
@@ -307,6 +321,8 @@ export const Tailscale = GObject.registerClass(
           const status = await this._client.request("GET", "/localapi/v0/status")
           this._peers = Object.values(status.Peer);
           this._prefs = await this._client.request("GET", "/localapi/v0/prefs")
+          this._profiles = await this._client.request("GET", "/localapi/v0/profiles/")
+          this.notify("profiles");
           this._parse_response();
 
           for await (const update of this._client.stream("GET", "/localapi/v0/watch-ipn-bus", this._cancelable)) {
@@ -371,6 +387,16 @@ export const Tailscale = GObject.registerClass(
           (prefs) => {
             this._prefs = prefs;
             this._parse_response();
+          },
+          (error) => console.error(error),
+        );
+    }
+
+    _update_profile(value) {
+      this._client.request("POST", `/localapi/v0/profiles/${value}`, {})
+        .then(
+          () => {
+            this.notify('profiles');
           },
           (error) => console.error(error),
         );
