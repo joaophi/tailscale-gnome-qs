@@ -152,7 +152,7 @@ const TailscaleMenuToggle = GObject.registerClass(
         y_expand: true,
         clip_to_allocation: true,
       });
-      scrollView.add_actor(nodes.actor);
+      scrollView.add_child(nodes.actor);
       const scrollMenuItem = new PopupMenu.PopupBaseMenuItem({
         reactive: false,
         can_focus: false
