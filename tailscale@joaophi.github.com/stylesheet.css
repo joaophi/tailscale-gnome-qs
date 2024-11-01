@@ -1,5 +1,7 @@
 .country-sub-menu .popup-menu-item {
     background-color: transparent;
-    box-shadow: none;
 }
 
+.country-sub-menu .popup-menu-item:hover {
+    background-color: #4c4c4c;
+}

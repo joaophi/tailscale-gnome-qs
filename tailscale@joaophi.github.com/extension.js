@@ -235,13 +235,13 @@ const TailscaleMenuToggle = GObject.registerClass(
 
         // Add sections
         if (nonMullvadNodes.length > 0) {
-          const title = new PopupMenu.PopupMenuItem(_("Nodes"), { reactive: false });
+          const title = new PopupMenu.PopupMenuItem(_("Nodes"), {});
           nodes.addMenuItem(title);
           nodes.addMenuItem(nonMullvadSection);
         }
         if (mullvadNodes.length > 0) {
           nodes.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
-          const title = new PopupMenu.PopupMenuItem(_("Mullvad Exit Nodes"), { reactive: false });
+          const title = new PopupMenu.PopupMenuItem(_("Mullvad Exit Nodes"), {});
           nodes.addMenuItem(title);
           nodes.addMenuItem(mullvadSection);
         }
