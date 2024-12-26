@@ -153,6 +153,17 @@ const TailscaleProfileItem = GObject.registerClass(
   }
 );
 
+const PopupScrollableSubMenuMenuItem = GObject.registerClass(
+  class PopupScrollableSubMenuMenuItem extends PopupMenu.PopupSubMenuMenuItem {
+    _init(props) {
+      super._init(props);
+
+      this.menu._needsScrollbar = () => true;
+      this.menu.box.height = 200;
+    }
+  }
+);
+
 const TailscaleMenuToggle = GObject.registerClass(
   class TailscaleMenuToggle extends QuickSettings.QuickMenuToggle {
     _init(icon, tailscale) {
@@ -176,6 +187,7 @@ const TailscaleMenuToggle = GObject.registerClass(
       this.menu.setHeader(icon, this.title, tailscale.exit_node_name);
 
       // NODES
+      const mnodes = new PopupScrollableSubMenuMenuItem(_("Nodes"), false, {});
       const nodes = new PopupMenu.PopupMenuSection();
       const update_nodes = (obj) => {
         nodes.removeAll();
@@ -211,7 +223,8 @@ const TailscaleMenuToggle = GObject.registerClass(
       }
       tailscale.connect("notify::nodes", (obj) => update_nodes(obj));
       update_nodes(tailscale);
-      this.menu.addMenuItem(nodes);
+      mnodes.menu.addMenuItem(nodes);
+      this.menu.addMenuItem(mnodes);
 
       // SEPARATOR
       this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());

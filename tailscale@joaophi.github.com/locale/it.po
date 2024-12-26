@@ -57,3 +57,5 @@ msgstr "SSH"
 msgid "Profiles"
 msgstr "Profili"
 
+msgid "Nodes"
+msgstr "Nodi"
