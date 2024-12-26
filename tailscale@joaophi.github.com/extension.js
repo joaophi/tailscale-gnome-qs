@@ -136,11 +136,9 @@ const TailscaleProfileItem = GObject.registerClass(
       sub.text = subtitle;
 
       if (enabled) {
-        const icon = new St.Icon({
-          style_class: 'popup-menu-icon',
-        });
+        const icon = new St.Icon({ style_class: 'system-status-icon' });
         this.add_child(icon);
-        icon.icon_name = 'dialog-ok'
+        icon.icon_name = 'object-select-symbolic'
       }
 
       this.connect('activate', () => onClick());
