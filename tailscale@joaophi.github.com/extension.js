@@ -262,7 +262,7 @@ const TailscaleMenuToggle = GObject.registerClass(
       const update_profiles = (obj) => {
         profiles.menu.removeAll();
         for (const p of obj.profiles) {
-          let enabled = obj._prefs.ControlURL === p.ControlURL;
+          let enabled = obj._prefs.ControlURL === p.ControlURL && obj._prefs.Config.UserProfile.ID === p.UserProfile.ID;
           const onClick = () => { tailscale.profiles = p.ID; }
           profiles.menu.addMenuItem(new TailscaleProfileItem(p.Name, p.NetworkProfile.DomainName, enabled, onClick));
         }
