@@ -305,7 +305,7 @@ export const Tailscale = GObject.registerClass(
       while (true) {
         try {
           const status = await this._client.request("GET", "/localapi/v0/status")
-          this._peers = Object.values(status.Peer);
+          this._peers = Object.values(status.Peer || {});
           this._prefs = await this._client.request("GET", "/localapi/v0/prefs")
           this._parse_response();
 
