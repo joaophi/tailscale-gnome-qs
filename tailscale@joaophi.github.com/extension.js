@@ -116,6 +116,52 @@ const TailscaleDeviceItem = GObject.registerClass(
   }
 );
 
+const TailscaleProfileItem = GObject.registerClass(
+  class TailscaleProfileItem extends PopupMenu.PopupBaseMenuItem {
+    _init(title, subtitle, enabled, onClick) {
+      super._init({
+        activate: onClick,
+      });
+
+      const label = new St.Label({
+        x_expand: true,
+      });
+      this.add_child(label);
+      label.text = title;
+
+      const sub = new St.Label({
+        style_class: 'device-subtitle',
+      });
+      this.add_child(sub);
+      sub.text = subtitle;
+
+      if (enabled) {
+        const icon = new St.Icon({ style_class: 'system-status-icon' });
+        this.add_child(icon);
+        icon.icon_name = 'object-select-symbolic'
+      }
+
+      this.connect('activate', () => onClick());
+    }
+
+    activate(event) {
+      if (this._activatable)
+        this.emit('activate', event);
+    }
+  }
+);
+
+const PopupScrollableSubMenuMenuItem = GObject.registerClass(
+  class PopupScrollableSubMenuMenuItem extends PopupMenu.PopupSubMenuMenuItem {
+    _init(props) {
+      super._init(props);
+
+      this.menu._needsScrollbar = () => true;
+      this.menu.box.height = 200;
+    }
+  }
+);
+
 const TailscaleMenuToggle = GObject.registerClass(
   class TailscaleMenuToggle extends QuickSettings.QuickMenuToggle {
     _init(icon, tailscale) {
@@ -139,6 +185,7 @@ const TailscaleMenuToggle = GObject.registerClass(
       this.menu.setHeader(icon, this.title, tailscale.exit_node_name);
 
       // NODES
+      const mnodes = new PopupScrollableSubMenuMenuItem(_("Nodes"), false, {});
       const nodes = new PopupMenu.PopupMenuSection();
       const update_nodes = (obj) => {
         nodes.removeAll();
@@ -174,7 +221,8 @@ const TailscaleMenuToggle = GObject.registerClass(
       }
       tailscale.connect("notify::nodes", (obj) => update_nodes(obj));
       update_nodes(tailscale);
-      this.menu.addMenuItem(nodes);
+      mnodes.menu.addMenuItem(nodes);
+      this.menu.addMenuItem(mnodes);
 
       // SEPARATOR
       this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
@@ -208,6 +256,20 @@ const TailscaleMenuToggle = GObject.registerClass(
       prefs.menu.addMenuItem(ssh);
 
       this.menu.addMenuItem(prefs);
+
+      // PROFILES
+      const profiles = new PopupMenu.PopupSubMenuMenuItem(_("Profiles"), false, {});
+      const update_profiles = (obj) => {
+        profiles.menu.removeAll();
+        for (const p of obj.profiles) {
+          let enabled = obj._prefs.ControlURL === p.ControlURL && obj._prefs.Config.UserProfile.ID === p.UserProfile.ID;
+          const onClick = () => { tailscale.profiles = p.ID; }
+          profiles.menu.addMenuItem(new TailscaleProfileItem(p.Name, p.NetworkProfile.DomainName, enabled, onClick));
+        }
+      }
+      tailscale.connect("notify::profiles", (obj) => update_profiles(obj));
+      update_nodes(tailscale);
+      this.menu.addMenuItem(profiles);
     }
   }
 );
