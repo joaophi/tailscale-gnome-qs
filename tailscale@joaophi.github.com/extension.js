@@ -270,6 +270,17 @@ const TailscaleMenuToggle = GObject.registerClass(
       tailscale.connect("notify::profiles", (obj) => update_profiles(obj));
       update_nodes(tailscale);
       this.menu.addMenuItem(profiles);
+
+      tailscale.connect("notify::running", (obj) => {
+        if (obj._running) {
+          let enabled_profile = obj._profiles.find(p => p.NodeID === obj._prefs.Config.NodeID);
+          this.subtitle = enabled_profile ? enabled_profile.NetworkProfile.DomainName : null;
+        } else {
+          this.subtitle = null;
+        }
+        update_profiles(obj);
+        this.menu.setHeader(icon, this.title, this.subtitle);
+      })
     }
   }
 );
