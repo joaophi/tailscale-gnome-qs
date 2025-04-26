@@ -33,6 +33,7 @@ const QuickSettingsMenu = Main.panel.statusArea.quickSettings;
 
 import { Tailscale } from "./tailscale.js";
 import { clearInterval, clearSources, setInterval } from "./timeout.js";
+import { filterMullvadNodes, createMullvadExitNodeButton } from "./mullvad.js";
 
 const TailscaleIndicator = GObject.registerClass(
   class TailscaleIndicator extends QuickSettings.SystemIndicator {
@@ -187,11 +188,20 @@ const TailscaleMenuToggle = GObject.registerClass(
       // NODES
       const mnodes = new PopupScrollableSubMenuMenuItem(_("Nodes"), false, {});
       const nodes = new PopupMenu.PopupMenuSection();
+
+      // Keep track of available Mullvad nodes
+      let availableMullvadNodes = [];
+      let mullvadButtonItem = null;
+
       const update_nodes = (obj) => {
         nodes.removeAll();
-        const mullvad = new PopupMenu.PopupSubMenuMenuItem("Mullvad", false, {});
-        for (const node of obj.nodes) {
-          const menu = (node.mullvad && !node.exit_node) ? mullvad.menu : nodes;
+
+        // Separate Mullvad nodes from regular nodes and filter only online Mullvad nodes
+        availableMullvadNodes = filterMullvadNodes(obj.nodes);
+        const regularNodes = obj.nodes.filter(node => !node.mullvad || node.exit_node);
+
+        // Add regular nodes to main menu
+        for (const node of regularNodes) {
           const device_icon = !node.online
             ? "network-offline-symbolic"
             : ((node.os == "android" || node.os == "iOS")
@@ -211,14 +221,30 @@ const TailscaleMenuToggle = GObject.registerClass(
             return true;
           };
 
-          menu.addMenuItem(new TailscaleDeviceItem(device_icon, node.name, subtitle, onClick, onLongClick));
+          nodes.addMenuItem(new TailscaleDeviceItem(device_icon, node.name, subtitle, onClick, onLongClick));
         }
-        if (mullvad.menu.isEmpty()) {
-          mullvad.destroy();
-        } else {
-          nodes.addMenuItem(mullvad);
+
+        // Update Mullvad button visibility
+        this._updateMullvadButton();
+      };
+
+      // Method to create or remove Mullvad button based on available nodes
+      this._updateMullvadButton = () => {
+        // Remove existing button if it exists
+        if (mullvadButtonItem) {
+          mullvadButtonItem.destroy();
+          mullvadButtonItem = null;
         }
-      }
+
+        // Create new button using the helper function
+        mullvadButtonItem = createMullvadExitNodeButton(availableMullvadNodes, tailscale);
+
+        // Add it to the main menu if it was created
+        if (mullvadButtonItem) {
+          this.menu.addMenuItem(mullvadButtonItem);
+        }
+      };
+
       tailscale.connect("notify::nodes", (obj) => update_nodes(obj));
       update_nodes(tailscale);
       mnodes.menu.addMenuItem(nodes);
