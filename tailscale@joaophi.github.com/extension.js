@@ -35,6 +35,27 @@ import { Tailscale } from "./tailscale.js";
 import { clearInterval, clearSources, setInterval } from "./timeout.js";
 import { filterMullvadNodes, createMullvadExitNodeButton } from "./mullvad.js";
 
+export const DisableExitNodeButton = GObject.registerClass(
+    class DisableExitNodeButton extends St.Button {
+        _init(tailscale) {
+            const isExitNodeActive = tailscale.exit_node !== "";
+
+            super._init({
+                style_class: "icon-button",
+                can_focus: true,
+                icon_name: "network-vpn-symbolic",
+                accessible_name: _("disable exit node"),
+                reactive: isExitNodeActive,
+            });
+
+            this.connect("clicked", () => {
+                tailscale.exit_node = "";
+                this.reactive = false;
+            });
+        }
+    }
+);
+
 const TailscaleIndicator = GObject.registerClass(
   class TailscaleIndicator extends QuickSettings.SystemIndicator {
     _init(icon, tailscale) {
@@ -176,12 +197,25 @@ const TailscaleMenuToggle = GObject.registerClass(
       this.title = "Tailscale";
       tailscale.bind_property("running", this, "checked", GObject.BindingFlags.SYNC_CREATE | GObject.BindingFlags.BIDIRECTIONAL);
 
+      // Header action bar section
+      const actionLayout = new Clutter.GridLayout();
+      const actionBar = new St.Widget({
+          layout_manager: actionLayout,
+      });
+
+      this.menu._headerSpacer.x_align = Clutter.ActorAlign.END;
+      this.menu._headerSpacer.add_child(actionBar);
+
+      const disableExitNodeButton = new DisableExitNodeButton(tailscale);
+      actionLayout.attach(disableExitNodeButton, 0, 0, 1, 1);
+
       // This function is unique to this class. It adds a nice header with an
       // icon, title and optional subtitle. It's recommended you do so for
       // consistency with other menus.
       tailscale.connect("notify::exit-node-name", () => {
         this.subtitle = tailscale.exit_node_name;
         this.menu.setHeader(icon, this.title, this.subtitle);
+        disableExitNodeButton.reactive = tailscale.exit_node !== "";
       });
       this.menu.setHeader(icon, this.title, tailscale.exit_node_name);
 
