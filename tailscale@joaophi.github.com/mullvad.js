@@ -9,6 +9,23 @@ import * as ModalDialog from 'resource:///org/gnome/shell/ui/modalDialog.js';
 import {gettext as _} from 'resource:///org/gnome/shell/extensions/extension.js';
 
 /**
+ * Convert a country code to a flag emoji
+ * @param {string} countryCode - The ISO 3166-1 alpha-2 country code
+ * @returns {string} The flag emoji for the country
+ */
+function getCountryFlag(countryCode) {
+  if (!countryCode) return '';
+
+  // Convert country code to flag emoji
+  // Each letter in the country code is converted to a regional indicator symbol
+  // by adding 127397 to its Unicode code point
+  return countryCode
+    .split('')
+    .map(char => String.fromCodePoint(char.charCodeAt(0) + 127397))
+    .join('');
+}
+
+/**
  * This module provides UI components for selecting Mullvad exit nodes in the Tailscale GNOME extension.
  * It includes custom menu items for displaying location information and nodes, and a modal dialog for selecting exit nodes.
  */
@@ -175,8 +192,9 @@ export const MullvadLocationItem = GObject.registerClass({
    * @param {number} nodeCount - Number of available nodes at this location
    * @param {Object} bestNode - The best node object for this location
    * @param {Array} nodes - All nodes for this location
+   * @param {string} countryCode - The country code (ISO 3166-1 alpha-2)
    */
-  _init(city, country, nodeCount, bestNode, nodes) {
+  _init(city, country, nodeCount, bestNode, nodes, countryCode) {
     super._init({
       style_class: 'mullvad-location-item popup-menu-item',
       activate: true,
@@ -187,6 +205,7 @@ export const MullvadLocationItem = GObject.registerClass({
     this.nodeCount = nodeCount;
     this.bestNode = bestNode;
     this.nodes = nodes;
+    this.countryCode = countryCode;
     this._selected = false;
     this._expanded = false;
 
@@ -234,6 +253,17 @@ export const MullvadLocationItem = GObject.registerClass({
       y_align: Clutter.ActorAlign.CENTER
     });
     this.add_child(this.checkIcon);
+
+    // Country flag
+    const flagEmoji = getCountryFlag(this.countryCode);
+    this.flagLabel = new St.Label({
+      style_class: 'mullvad-country-flag',
+      text: flagEmoji,
+      x_align: Clutter.ActorAlign.END,
+      y_align: Clutter.ActorAlign.CENTER,
+      style: 'font-size: 16px; margin-right: 8px;'
+    });
+    this.add_child(this.flagLabel);
 
     // Expand button
     this.expandButton = new St.Button({
@@ -411,12 +441,14 @@ export const MullvadExitNodeDialog = GObject.registerClass(
       for (const node of this._nodes) {
         const country = node.location?.Country || 'Unknown';
         const city = node.location?.City || 'Unknown';
+        const countryCode = node.location?.CountryCode || '';
         const locationKey = `${city} ${country}`;
 
         if (!this._locationData[locationKey]) {
           this._locationData[locationKey] = {
             city,
             country,
+            countryCode,
             nodes: [],
             bestNode: null
           };
@@ -746,7 +778,8 @@ export const MullvadExitNodeDialog = GObject.registerClass(
           location.country,
           location.nodeCount,
           location.bestNode,
-          location.nodes
+          location.nodes,
+          location.countryCode
         );
 
         // Check if this is the current exit node
