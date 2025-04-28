@@ -33,6 +33,28 @@ const QuickSettingsMenu = Main.panel.statusArea.quickSettings;
 
 import { Tailscale } from "./tailscale.js";
 import { clearInterval, clearSources, setInterval } from "./timeout.js";
+import { filterMullvadNodes, createMullvadExitNodeButton } from "./mullvad.js";
+
+export const DisableExitNodeButton = GObject.registerClass(
+    class DisableExitNodeButton extends St.Button {
+        _init(tailscale) {
+            const isExitNodeActive = tailscale.exit_node !== "";
+
+            super._init({
+                style_class: "icon-button",
+                can_focus: true,
+                icon_name: "network-vpn-symbolic",
+                accessible_name: _("disable exit node"),
+                reactive: isExitNodeActive,
+            });
+
+            this.connect("clicked", () => {
+                tailscale.exit_node = "";
+                this.reactive = false;
+            });
+        }
+    }
+);
 
 const TailscaleIndicator = GObject.registerClass(
   class TailscaleIndicator extends QuickSettings.SystemIndicator {
@@ -175,23 +197,45 @@ const TailscaleMenuToggle = GObject.registerClass(
       this.title = "Tailscale";
       tailscale.bind_property("running", this, "checked", GObject.BindingFlags.SYNC_CREATE | GObject.BindingFlags.BIDIRECTIONAL);
 
+      // Header action bar section
+      const actionLayout = new Clutter.GridLayout();
+      const actionBar = new St.Widget({
+          layout_manager: actionLayout,
+      });
+
+      this.menu._headerSpacer.x_align = Clutter.ActorAlign.END;
+      this.menu._headerSpacer.add_child(actionBar);
+
+      const disableExitNodeButton = new DisableExitNodeButton(tailscale);
+      actionLayout.attach(disableExitNodeButton, 0, 0, 1, 1);
+
       // This function is unique to this class. It adds a nice header with an
       // icon, title and optional subtitle. It's recommended you do so for
       // consistency with other menus.
       tailscale.connect("notify::exit-node-name", () => {
         this.subtitle = tailscale.exit_node_name;
         this.menu.setHeader(icon, this.title, this.subtitle);
+        disableExitNodeButton.reactive = tailscale.exit_node !== "";
       });
       this.menu.setHeader(icon, this.title, tailscale.exit_node_name);
 
       // NODES
       const mnodes = new PopupScrollableSubMenuMenuItem(_("Nodes"), false, {});
       const nodes = new PopupMenu.PopupMenuSection();
+
+      // Keep track of available Mullvad nodes
+      let availableMullvadNodes = [];
+      let mullvadButtonItem = null;
+
       const update_nodes = (obj) => {
         nodes.removeAll();
-        const mullvad = new PopupMenu.PopupSubMenuMenuItem("Mullvad", false, {});
-        for (const node of obj.nodes) {
-          const menu = (node.mullvad && !node.exit_node) ? mullvad.menu : nodes;
+
+        // Separate Mullvad nodes from regular nodes and filter only online Mullvad nodes
+        availableMullvadNodes = filterMullvadNodes(obj.nodes);
+        const regularNodes = obj.nodes.filter(node => !node.mullvad || node.exit_node);
+
+        // Add regular nodes to main menu
+        for (const node of regularNodes) {
           const device_icon = !node.online
             ? "network-offline-symbolic"
             : ((node.os == "android" || node.os == "iOS")
@@ -211,14 +255,30 @@ const TailscaleMenuToggle = GObject.registerClass(
             return true;
           };
 
-          menu.addMenuItem(new TailscaleDeviceItem(device_icon, node.name, subtitle, onClick, onLongClick));
+          nodes.addMenuItem(new TailscaleDeviceItem(device_icon, node.name, subtitle, onClick, onLongClick));
         }
-        if (mullvad.menu.isEmpty()) {
-          mullvad.destroy();
-        } else {
-          nodes.addMenuItem(mullvad);
+
+        // Update Mullvad button visibility
+        this._updateMullvadButton();
+      };
+
+      // Method to create or remove Mullvad button based on available nodes
+      this._updateMullvadButton = () => {
+        // Remove existing button if it exists
+        if (mullvadButtonItem) {
+          mullvadButtonItem.destroy();
+          mullvadButtonItem = null;
         }
-      }
+
+        // Create new button using the helper function
+        mullvadButtonItem = createMullvadExitNodeButton(availableMullvadNodes, tailscale);
+
+        // Add it to the main menu if it was created
+        if (mullvadButtonItem) {
+          this.menu.addMenuItem(mullvadButtonItem);
+        }
+      };
+
       tailscale.connect("notify::nodes", (obj) => update_nodes(obj));
       update_nodes(tailscale);
       mnodes.menu.addMenuItem(nodes);
