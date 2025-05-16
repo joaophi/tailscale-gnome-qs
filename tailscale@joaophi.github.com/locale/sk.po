@@ -1,0 +1,61 @@
+# Slovak translation.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# Jose Riha <jose1711@gmail.com>, 2025.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2023-07-14 16:47-0300\n"
+"PO-Revision-Date: 2025-05-16 11:08+0200\n"
+"Last-Translator: Jose Riha\n"
+"Language-Team: Slovak\n"
+"Language: sk\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: Poedit 3.3.1\n"
+
+#: extension.js:146
+msgid "disable exit node"
+msgstr "vypnúť výstupný uzol"
+
+#: extension.js:146
+msgid "use as exit node"
+msgstr "použiť ako výstupný uzol"
+
+#: extension.js:154
+msgid "IP address has been copied to the clipboard"
+msgstr "IP adresa bola skopírovaná do schránky"
+
+#: extension.js:167
+msgid "Settings"
+msgstr "Nastavenia"
+
+#: extension.js:169
+msgid "Accept routes"
+msgstr "Prijať smerovania"
+
+#: extension.js:174
+msgid "Accept DNS"
+msgstr "Prijať DNS"
+
+#: extension.js:179
+msgid "Allow LAN access"
+msgstr "Povoliť prístup do LAN"
+
+#: extension.js:184
+msgid "Shields up"
+msgstr "Štíty zapnuté"
+
+#: extension.js:189
+msgid "SSH"
+msgstr "SSH"
+
+#: extension.js:276
+msgid "Profiles"
+msgstr "Profily"
+
+msgid "Nodes"
+msgstr "Uzly"
